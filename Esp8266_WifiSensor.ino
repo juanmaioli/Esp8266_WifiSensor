@@ -203,7 +203,7 @@ String getUptime() {
 }
 
 void handleRoot() {
-    String html = INDEX_HTML;
+    String html = FPSTR(INDEX_HTML);
     
     html.replace("%HOSTNAME%", WiFi.hostname());
     html.replace("%IP%", WiFi.localIP().toString());
@@ -227,6 +227,7 @@ void handleRoot() {
             unsigned long diff = (last_success_temp_millis > 0) ? (millis() - last_success_temp_millis) / 1000 : 0;
             html.replace("%TEMP_TIME%", String(diff) + "s");    
     // Configuración
+    Serial.print("Reemplazando Host con: "); Serial.println(settings.host);
     html.replace("%CONF_HOST%", String(settings.host));
     html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
     html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
