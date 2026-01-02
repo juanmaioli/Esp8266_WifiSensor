@@ -102,12 +102,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                         <option value="1440" %INT_1440%>24 Horas</option>
                         <option value="manual" %INT_MANUAL%>Ingreso Manual</option>
                     </select>
-                    <div id="manual_div" style="display: %MAN_DISP%;">
-                        <label>Minutos Manuales:</label>
-                        <input type="number" name="interval_val" value="%CONF_INTERVAL%" min="1" max="1440">
-                    </div>
-                    <div style="text-align:center; margin-top:15px;">
-                        <button type="submit" class="button">Guardar</button>
+                    <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
+                        <div id="manual_div" style="display: %MAN_DISP%; flex: 1;">
+                            <input type="number" name="interval_val" value="%CONF_INTERVAL%" min="1" max="1440" placeholder="Minutos" style="margin: 0;">
+                        </div>
+                        <button type="submit" class="button" style="flex: 1; margin: 0;">Guardar</button>
                     </div>
                 </form>
             </div>
