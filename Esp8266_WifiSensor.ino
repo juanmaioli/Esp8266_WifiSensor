@@ -88,8 +88,21 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                         <option value="0" %CONF_HTTP%>HTTP</option>
                         <option value="1" %CONF_HTTPS%>HTTPS</option>
                     </select>
-                    <label>Intervalo (1m - 1440m):</label>
-                    <input type="number" name="interval" value="%CONF_INTERVAL%" min="1" max="1440">
+                    <label>Intervalo de Reporte:</label>
+                    <select name="interval_opt" id="interval_opt" onchange="toggleManual()">
+                        <option value="1" %INT_1%>1 Minuto</option>
+                        <option value="15" %INT_15%>15 Minutos</option>
+                        <option value="30" %INT_30%>30 Minutos</option>
+                        <option value="60" %INT_60%>1 Hora</option>
+                        <option value="360" %INT_360%>6 Horas</option>
+                        <option value="720" %INT_720%>12 Horas</option>
+                        <option value="1440" %INT_1440%>24 Horas</option>
+                        <option value="manual" %INT_MANUAL%>Ingreso Manual</option>
+                    </select>
+                    <div id="manual_div" style="display: %MAN_DISP%;">
+                        <label>Minutos Manuales:</label>
+                        <input type="number" name="interval_val" value="%CONF_INTERVAL%" min="1" max="1440">
+                    </div>
                     <div style="text-align:center; margin-top:15px;">
                         <button type="submit" class="button">Guardar</button>
                     </div>
@@ -145,6 +158,10 @@ function showSlide(n) {
     slides[slideIndex - 1].style.display = 'block';
     dots[slideIndex - 1].className += ' active';
 }
+function toggleManual() {
+    let opt = document.getElementById('interval_opt').value;
+    document.getElementById('manual_div').style.display = (opt === 'manual') ? 'block' : 'none';
+}
 )rawliteral";
 
 void loadConfig() {
@@ -195,6 +212,20 @@ void handleRoot() {
     html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
     html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
     html.replace("%CONF_INTERVAL%", String(settings.interval_minutes));
+
+    // Lógica de Intervalo
+    int iv = settings.interval_minutes;
+    html.replace("%INT_1%", (iv==1)?"selected":"");
+    html.replace("%INT_15%", (iv==15)?"selected":"");
+    html.replace("%INT_30%", (iv==30)?"selected":"");
+    html.replace("%INT_60%", (iv==60)?"selected":"");
+    html.replace("%INT_360%", (iv==360)?"selected":"");
+    html.replace("%INT_720%", (iv==720)?"selected":"");
+    html.replace("%INT_1440%", (iv==1440)?"selected":"");
+    
+    bool is_manual = (iv!=1 && iv!=15 && iv!=30 && iv!=60 && iv!=360 && iv!=720 && iv!=1440);
+    html.replace("%INT_MANUAL%", is_manual ? "selected" : "");
+    html.replace("%MAN_DISP%", is_manual ? "block" : "none");
     
     server.send(200, "text/html", html);
 }
@@ -202,7 +233,15 @@ void handleRoot() {
 void handleSave() {
   if (server.hasArg("host")) strncpy(settings.host, server.arg("host").c_str(), 63);
   if (server.hasArg("protocol")) settings.use_https = (server.arg("protocol").toInt() == 1);
-  if (server.hasArg("interval")) settings.interval_minutes = constrain(server.arg("interval").toInt(), 1, 1440);
+  
+  if (server.hasArg("interval_opt")) {
+    String opt = server.arg("interval_opt");
+    if (opt == "manual") {
+      if (server.hasArg("interval_val")) settings.interval_minutes = constrain(server.arg("interval_val").toInt(), 1, 1440);
+    } else {
+      settings.interval_minutes = opt.toInt();
+    }
+  }
   
   saveConfig();
   
