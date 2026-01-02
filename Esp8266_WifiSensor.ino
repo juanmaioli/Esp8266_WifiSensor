@@ -1,12 +1,10 @@
 
 //CavaWiFi Version 0.9
 //Author Juan Maioli
-#include <DNSServer.h>
-#include <DallasTemperature.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266WiFi.h>
 #include <OneWire.h> 
 #include <WiFiClientSecure.h>
+#include <EEPROM.h>
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 
 #define ONE_WIRE_BUS1 (D4) // Inicia Medicion Temp Ambiental 
@@ -18,13 +16,18 @@ OneWire oneWire1(ONE_WIRE_BUS1);
 DallasTemperature sensors1(&oneWire1);
 //DallasTemperature sensors2(&oneWire2);
 
-const char* host = "pikapp.com.ar"; 
 String serial_number;
 unsigned long last_report_time = 0;
-const long report_interval = 60000; // 60 segundos
 unsigned long last_sensor_read = 0;
 const long sensor_read_interval = 5000; // Leer sensor cada 5s
 float globalTempC = DEVICE_DISCONNECTED_C;
+
+struct Config {
+  char host[64];
+  bool use_https;
+  int interval_minutes;
+  char magic[4]; // Para verificar si la EEPROM está inicializada
+} settings;
 
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
@@ -71,10 +74,30 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                     <p>Sensor Interior</p>
                 </div>
             </div>
+            <!-- Slide 3: Configuración -->
+            <div class="carousel-slide fade">
+                <h2>Configuración</h2>
+                <div class="emoji-container"><span class="emoji">⚙️</span></div>
+                <form action="/save" method="POST" style="padding: 0 10px;">
+                    <label>Servidor (Host):</label>
+                    <input type="text" name="host" value="%CONF_HOST%">
+                    <label>Protocolo:</label>
+                    <select name="protocol">
+                        <option value="0" %CONF_HTTP%>HTTP</option>
+                        <option value="1" %CONF_HTTPS%>HTTPS</option>
+                    </select>
+                    <label>Intervalo (1m - 1440m):</label>
+                    <input type="number" name="interval" value="%CONF_INTERVAL%" min="1" max="1440">
+                    <div style="text-align:center; margin-top:15px;">
+                        <button type="submit" class="button">Guardar</button>
+                    </div>
+                </form>
+            </div>
         </div>
         <div class="dots">
             <span class="dot" onclick="currentSlide(1)"></span>
             <span class="dot" onclick="currentSlide(2)"></span>
+            <span class="dot" onclick="currentSlide(3)"></span>
         </div>
     </div>
     <script src="script.js"></script>
@@ -99,6 +122,10 @@ body { background-color: var(--bg-color); color: var(--text-secondary); font-fam
 .emoji-container { text-align: center; font-size: 3em; margin: 10px 0; }
 h2 { text-align: center; color: var(--text-primary); }
 h3 { font-size: 0.9em; line-height: 1.6; }
+input, select { width: 100%; padding: 8px; margin: 5px 0 15px; display: inline-block; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+label { font-weight: bold; font-size: 0.9em; }
+.button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+.button:hover { background-color: #45a049; }
 )rawliteral";
 
 const char SCRIPT_JS[] PROGMEM = R"rawliteral(
@@ -119,6 +146,29 @@ function showSlide(n) {
 setInterval(() => changeSlide(1), 10000);
 )rawliteral";
 
+void loadConfig() {
+  EEPROM.begin(512);
+  EEPROM.get(0, settings);
+  if (strcmp(settings.magic, "CFG1") != 0) {
+    // Valores por defecto
+    Serial.println("EEPROM vacía, cargando defaults");
+    strcpy(settings.host, "pikapp.com.ar");
+    settings.use_https = false;
+    settings.interval_minutes = 1;
+    strcpy(settings.magic, "CFG1");
+    EEPROM.put(0, settings);
+    EEPROM.commit();
+  }
+  Serial.print("Config Host: "); Serial.println(settings.host);
+  Serial.print("Config HTTPS: "); Serial.println(settings.use_https);
+}
+
+void saveConfig() {
+  EEPROM.put(0, settings);
+  EEPROM.commit();
+  Serial.println("Configuración guardada");
+}
+
 // --- Handlers del Servidor ---
 String getUptime() {
     unsigned long s = millis() / 1000;
@@ -138,8 +188,25 @@ void handleRoot() {
     html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
     html.replace("%UPTIME%", getUptime());
     html.replace("%TEMP1%", (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1));
+
+    // Configuración
+    html.replace("%CONF_HOST%", String(settings.host));
+    html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
+    html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
+    html.replace("%CONF_INTERVAL%", String(settings.interval_minutes));
     
     server.send(200, "text/html", html);
+}
+
+void handleSave() {
+  if (server.hasArg("host")) strncpy(settings.host, server.arg("host").c_str(), 63);
+  if (server.hasArg("protocol")) settings.use_https = (server.arg("protocol").toInt() == 1);
+  if (server.hasArg("interval")) settings.interval_minutes = constrain(server.arg("interval").toInt(), 1, 1440);
+  
+  saveConfig();
+  
+  String html = "<html><head><meta charset='UTF-8'><meta http-equiv='refresh' content='3;url=/'></head><body><h2>Configuraci&oacute;n Guardada!</h2><p>Redirigiendo...</p></body></html>";
+  server.send(200, "text/html", html);
 }
 
 void setup() {
@@ -148,6 +215,9 @@ void setup() {
   sensors1.begin(); 
   //sensors2.begin(); 
   
+  // Cargar configuración persistente
+  loadConfig();
+
   // Obtener MAC y configurar Hostname único
   serial_number = WiFi.macAddress();
   String chipID = serial_number;
@@ -161,7 +231,6 @@ void setup() {
   Serial.println(serial_number);
 
   WiFiManager wifiManager;
-//wifiManager.resetSettings();
   wifiManager.setAPCallback(configModeCallback);
 
   if (!wifiManager.autoConnect(hostName.c_str())) {
@@ -174,6 +243,7 @@ void setup() {
 
   // Configurar Servidor Web
   server.on("/", handleRoot);
+  server.on("/save", HTTP_POST, handleSave);
   server.on("/style.css", []() { server.send(200, "text/css", STYLE_CSS); });
   server.on("/script.js", []() { server.send(200, "application/javascript", SCRIPT_JS); });
   server.begin();
@@ -195,62 +265,78 @@ void loop() {
     }
   }
   
-  // --- 2. Reporte al Servidor (Cada 60s) ---
-  if (millis() - last_report_time < report_interval && last_report_time != 0) {
-    return;
-  }
-  last_report_time = millis();
-
-  // Usamos el valor global actualizado
-  float celsius1 = globalTempC; 
-  
-  // Validar si tenemos una temperatura válida para reportar
-  if (celsius1 == DEVICE_DISCONNECTED_C) {
-    Serial.println("❌ Error: No se pudo leer la temperatura para el reporte.");
-    Serial.println("⏳ Reintentando en 30 segundos...");
-    last_report_time = millis() - 30000; 
-    return;
-  }
-
-  float celsius2 = 0; //sensors2.getTempCByIndex(0);
- 
-  String tempSerial;
-  tempSerial=  String(celsius1)+ " ºC Int";
-  Serial.println(tempSerial);
-
-  //tempSerial=  String(celsius2)+ " ºC Ext";
-  //Serial.println(tempSerial);
- 
-  String txtUrl;
-  txtUrl = "/cava/carga.php/?sn=" + String(serial_number) + "&s1=" + String(celsius1)+ "&s2=" + String(celsius2);
-
-WiFiClient client;
-// WiFiClientSecure client;
-
-  Serial.print("connecting to ");
-  Serial.println(host);
-  // if (!client.connect(host, 443)) {
-  if (!client.connect(host, 80)) {
-    Serial.println("Conexion Fallida");
-    return;
-  }
-
-  Serial.print("requesting URL: ");
-  client.print(String("GET ") + txtUrl + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" +
-               "User-Agent: BuildFailureDetectorESP8266\r\n" +
-               "Connection: close\r\n\r\n");
-
-  Serial.println("request sent");
-  while (client.connected()) {
-    String line = client.readStringUntil('\n');
-    if (line == "\r") {
-      Serial.println("headers received");
-      break;
+    // --- 2. Reporte al Servidor (Dinámico) ---
+    unsigned long interval_ms = (unsigned long)settings.interval_minutes * 60000;
+    if (millis() - last_report_time < interval_ms && last_report_time != 0) {
+      return;
     }
-  }
-  String line = client.readStringUntil('\n');
-  Serial.print("reply was:");
-  Serial.println(line);
-  Serial.println("closing connection");
- }
+    last_report_time = millis();
+  
+    // Usamos el valor global actualizado
+    float celsius1 = globalTempC; 
+    
+    // Validar si tenemos una temperatura válida para reportar
+    if (celsius1 == DEVICE_DISCONNECTED_C) {
+      Serial.println("❌ Error: No se pudo leer la temperatura para el reporte.");
+      Serial.println("⏳ Reintentando en 30 segundos...");
+      last_report_time = millis() - 30000; 
+      return;
+    }
+  
+    float celsius2 = 0; 
+    String tempSerial = String(celsius1)+ " ºC Int";
+    Serial.println(tempSerial);
+   
+    String txtUrl = "/cava/carga.php/?sn=" + String(serial_number) + "&s1=" + String(celsius1)+ "&s2=" + String(celsius2);
+  
+    WiFiClient client;
+    WiFiClientSecure clientSecure;
+    
+    if (settings.use_https) {
+        clientSecure.setInsecure(); // No validamos certificado para simplicidad
+    }
+  
+    Serial.print("connecting to ");
+    Serial.println(settings.host);
+    
+    bool connected = false;
+    if (settings.use_https) {
+        connected = clientSecure.connect(settings.host, 443);
+    } else {
+        connected = client.connect(settings.host, 80);
+    }
+  
+    if (!connected) {
+      Serial.println("Conexion Fallida");
+      return;
+    }
+    
+    // Referencia genérica al stream conectado para enviar datos
+    Stream* stream = settings.use_https ? (Stream*)&clientSecure : (Stream*)&client;
+  
+    Serial.print("requesting URL: ");
+    stream->print(String("GET ") + txtUrl + " HTTP/1.1\r\n" +
+                 "Host: " + settings.host + "\r\n" +
+                 "User-Agent: ESP8266WifiSensor\r\n" +
+                 "Connection: close\r\n\r\n");
+  
+    Serial.println("request sent");
+    unsigned long timeout = millis();
+    while (settings.use_https ? clientSecure.connected() : client.connected()) {
+      if (millis() - timeout > 5000) break; // Timeout simple
+      if (stream->available()) {
+          String line = stream->readStringUntil('\n');
+          if (line == "\r") {
+              Serial.println("headers received");
+              break;
+          }
+      }
+    }
+    
+    if (stream->available()) {
+      String line = stream->readStringUntil('\n');
+      Serial.print("reply was:");
+      Serial.println(line);
+    }
+    Serial.println("closing connection");
+   }
