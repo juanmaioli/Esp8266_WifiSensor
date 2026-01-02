@@ -20,9 +20,7 @@ DallasTemperature sensors1(&oneWire1);
 
 String serial_number;
 unsigned long last_report_time = 0;
-unsigned long last_sensor_read = 0;
 unsigned long last_success_temp_millis = 0;
-const long sensor_read_interval = 5000; // Leer sensor cada 5s
 float globalTempC = DEVICE_DISCONNECTED_C;
 
 struct Config {
@@ -313,30 +311,29 @@ void setup() {
  
 void loop() {
   server.handleClient();
+  
+  // --- Reporte y Lectura (Sincronizados por Intervalo) ---
+  unsigned long interval_ms = (unsigned long)settings.interval_minutes * 60000;
+  
+  // Si no es momento de reportar (y ya se reportó al menos una vez), salimos
+  if (millis() - last_report_time < interval_ms && last_report_time != 0) {
+    return;
+  }
+  last_report_time = millis();
 
-  // --- 1. Lectura Frecuente del Sensor (Cada 5s) ---
-  if (millis() - last_sensor_read > sensor_read_interval || last_sensor_read == 0) {
-    last_sensor_read = millis();
-    sensors1.requestTemperatures();
-    float t = sensors1.getTempCByIndex(0);
-    if (t != DEVICE_DISCONNECTED_C) {
+  // 1. Leer Sensor
+  sensors1.requestTemperatures();
+  float t = sensors1.getTempCByIndex(0);
+  
+  if (t != DEVICE_DISCONNECTED_C) {
       globalTempC = t;
       last_success_temp_millis = millis();
-    } else {
-       Serial.println("⚠️ Advertencia: Lectura de sensor fallida (Web)");
-    }
+  } else {
+       Serial.println("⚠️ Advertencia: Lectura de sensor fallida");
   }
-  
-    // --- 2. Reporte al Servidor (Dinámico) ---
-    unsigned long interval_ms = (unsigned long)settings.interval_minutes * 60000;
-    if (millis() - last_report_time < interval_ms && last_report_time != 0) {
-      return;
-    }
-    last_report_time = millis();
-  
-    // Usamos el valor global actualizado
-    float celsius1 = globalTempC; 
-    
+
+  // Usamos el valor recién leído
+  float celsius1 = globalTempC;    
     // Validar si tenemos una temperatura válida para reportar
     if (celsius1 == DEVICE_DISCONNECTED_C) {
       Serial.println("❌ Error: No se pudo leer la temperatura para el reporte.");
