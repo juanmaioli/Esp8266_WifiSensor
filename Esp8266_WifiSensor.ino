@@ -30,6 +30,116 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println(myWiFiManager->getConfigPortalSSID());
 }
 
+ESP8266WebServer server(80);
+
+// --- Recursos Web ---
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor WiFi</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <a class="prev" onclick="changeSlide(-1)">&#10094;</a>
+        <a class="next" onclick="changeSlide(1)">&#10095;</a>
+        <div class="carousel-container">
+            <!-- Slide 1: Estado del Dispositivo -->
+            <div class="carousel-slide fade">
+                <h2>Estado del Dispositivo</h2>
+                <div class="emoji-container"><span class="emoji">📟</span></div>
+                <h3>
+                    <strong>🖥️ Hostname:</strong> %HOSTNAME%<br>
+                    <strong>🏠 IP:</strong> %IP%<br>
+                    <strong>📶 Señal:</strong> %RSSI% dBm<br>
+                    <strong>🆔 MAC:</strong> %MAC%<br>
+                    <strong>🧠 Heap Libre:</strong> %FREE_HEAP% KB<br>
+                    <strong>⚡ Activo:</strong> %UPTIME%</h3>
+            </div>
+            <!-- Slide 2: Temperatura -->
+            <div class="carousel-slide fade">
+                <h2>Temperatura Actual</h2>
+                <div class="emoji-container"><span class="emoji">🌡️</span></div>
+                <div style="text-align:center; margin-top: 20px;">
+                    <span style="font-size: 4em; font-weight: bold; color: #4CAF50;">%TEMP1% ºC</span>
+                    <p>Sensor Interior</p>
+                </div>
+            </div>
+        </div>
+        <div class="dots">
+            <span class="dot" onclick="currentSlide(1)"></span>
+            <span class="dot" onclick="currentSlide(2)"></span>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+)rawliteral";
+
+const char STYLE_CSS[] PROGMEM = R"rawliteral(
+:root { --bg-color: #f0f2f5; --container-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #4b4f56; --dot-color: #bbb; --dot-active-color: #717171; }
+@media (prefers-color-scheme: dark) { :root { --bg-color: #121212; --container-bg: #1e1e1e; --text-primary: #e0e0e0; --text-secondary: #b0b3b8; --dot-color: #555; --dot-active-color: #ccc; } }
+body { background-color: var(--bg-color); color: var(--text-secondary); font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+.container { background-color: var(--container-bg); padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; height: 450px; position: relative; display: flex; flex-direction: column; }
+.carousel-container { position: relative; flex-grow: 1; overflow: hidden; }
+.carousel-slide { display: none; height: 100%; text-align: left; }
+.fade { animation: fade 0.5s; }
+@keyframes fade { from {opacity: .4} to {opacity: 1} }
+.prev, .next { cursor: pointer; position: absolute; top: 50%; width: auto; padding: 10px; color: var(--text-primary); font-weight: bold; font-size: 20px; z-index: 10; text-decoration: none; }
+.prev { left: 10px; } .next { right: 10px; }
+.dots { text-align: center; padding-top: 10px; }
+.dot { cursor: pointer; height: 12px; width: 12px; margin: 0 2px; background-color: var(--dot-color); border-radius: 50%; display: inline-block; }
+.active { background-color: var(--dot-active-color); }
+.emoji-container { text-align: center; font-size: 3em; margin: 10px 0; }
+h2 { text-align: center; color: var(--text-primary); }
+h3 { font-size: 0.9em; line-height: 1.6; }
+)rawliteral";
+
+const char SCRIPT_JS[] PROGMEM = R"rawliteral(
+let slideIndex = 1;
+document.addEventListener("DOMContentLoaded", () => showSlide(slideIndex));
+function changeSlide(n) { showSlide(slideIndex += n); }
+function currentSlide(n) { showSlide(slideIndex = n); }
+function showSlide(n) {
+    let slides = document.getElementsByClassName('carousel-slide');
+    let dots = document.getElementsByClassName('dot');
+    if (n > slides.length) slideIndex = 1;
+    if (n < 1) slideIndex = slides.length;
+    for (let i = 0; i < slides.length; i++) slides[i].style.display = 'none';
+    for (let i = 0; i < dots.length; i++) dots[i].className = dots[i].className.replace(' active', '');
+    slides[slideIndex - 1].style.display = 'block';
+    dots[slideIndex - 1].className += ' active';
+}
+setInterval(() => changeSlide(1), 10000);
+)rawliteral";
+
+// --- Handlers del Servidor ---
+String getUptime() {
+    unsigned long s = millis() / 1000;
+    int d = s / 86400; s %= 86400;
+    int h = s / 3600; s %= 3600;
+    int m = s / 60; s %= 60;
+    return String(d) + "d " + String(h) + "h " + String(m) + "m " + String(s) + "s";
+}
+
+void handleRoot() {
+    String html = INDEX_HTML;
+    float currentTemp = sensors1.getTempCByIndex(0);
+    
+    html.replace("%HOSTNAME%", WiFi.hostname());
+    html.replace("%IP%", WiFi.localIP().toString());
+    html.replace("%RSSI%", String(WiFi.RSSI()));
+    html.replace("%MAC%", WiFi.macAddress());
+    html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
+    html.replace("%UPTIME%", getUptime());
+    html.replace("%TEMP1%", (currentTemp == DEVICE_DISCONNECTED_C) ? "--" : String(currentTemp, 1));
+    
+    server.send(200, "text/html", html);
+}
+
 void setup() {
   Serial.begin(115200);
   delay(10);
@@ -59,9 +169,18 @@ void setup() {
     delay(1000);
   }
   Serial.println("Connected OK");
+
+  // Configurar Servidor Web
+  server.on("/", handleRoot);
+  server.on("/style.css", []() { server.send(200, "text/css", STYLE_CSS); });
+  server.on("/script.js", []() { server.send(200, "application/javascript", SCRIPT_JS); });
+  server.begin();
+  Serial.println("HTTP server started");
 }
  
 void loop() {
+  server.handleClient();
+  
   if (millis() - last_report_time < report_interval && last_report_time != 0) {
     return;
   }
