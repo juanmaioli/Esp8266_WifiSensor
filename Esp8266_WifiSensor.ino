@@ -19,7 +19,8 @@ DallasTemperature sensors1(&oneWire1);
 //DallasTemperature sensors2(&oneWire2);
 
 const char* host = "pikapp.com.ar"; 
- String serial_number = WiFi.softAPmacAddress().c_str();
+String serial_number;
+
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
   Serial.println(WiFi.softAPIP());
@@ -32,14 +33,24 @@ void setup() {
   delay(10);
   sensors1.begin(); 
   //sensors2.begin(); 
-  WiFi.hostname("WifiSensor"); 
+  
+  // Obtener MAC y configurar Hostname único
+  serial_number = WiFi.macAddress();
+  String chipID = serial_number;
+  chipID.replace(":", "");
+  String hostName = "WifiSensor-" + chipID.substring(chipID.length() - 4);
+  
+  WiFi.hostname(hostName);
+  Serial.print("Hostname: ");
+  Serial.println(hostName);
+  Serial.print("MAC: ");
   Serial.println(serial_number);
 
   WiFiManager wifiManager;
 //wifiManager.resetSettings();
   wifiManager.setAPCallback(configModeCallback);
 
-  if (!wifiManager.autoConnect("WiFiSensor01")) {
+  if (!wifiManager.autoConnect(hostName.c_str())) {
     Serial.println("failed to connect and hit timeout");
     //reset and try again, or maybe put it to deep sleep
     ESP.reset();
