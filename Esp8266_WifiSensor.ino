@@ -1,5 +1,5 @@
 
-//CavaWiFi Version 0.9
+//WifiSensor Version 0.9
 //Author Juan Maioli
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -348,7 +348,7 @@ void loop() {
     String tempSerial = String(celsius1)+ " ºC Int";
     Serial.println(tempSerial);
    
-    String txtUrl = "/cava/carga.php/?sn=" + String(serial_number) + "&s1=" + String(celsius1)+ "&s2=" + String(celsius2);
+    String txtUrl = "/wifisensor/carga.php/?sn=" + String(serial_number) + "&s1=" + String(celsius1)+ "&s2=" + String(celsius2);
   
     WiFiClient client;
     WiFiClientSecure clientSecure;

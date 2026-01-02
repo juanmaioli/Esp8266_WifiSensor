@@ -1,10 +1,10 @@
-# 🌡️ Sensor WiFi ESP8266 (CavaWiFi)
+# 🌡️ Sensor WiFi ESP8266 (WifiSensor)
 
 [Ver código fuente](Esp8266_WifiSensor.ino)
 
 ## 1. Descripción 📝
 
-**CavaWiFi** es un sistema de monitoreo de temperatura basado en el microcontrolador **ESP8266**. Utiliza sensores **DS18B20** para leer la temperatura ambiente y enviarla periódicamente a un servidor remoto.
+**WifiSensor** es un sistema de monitoreo de temperatura basado en el microcontrolador **ESP8266**. Utiliza sensores **DS18B20** para leer la temperatura ambiente y enviarla periódicamente a un servidor remoto.
 
 El dispositivo cuenta con una interfaz web moderna y responsiva integrada (alojada en la memoria flash) que permite visualizar el estado en tiempo real y realizar configuraciones sin necesidad de reflashear el código.
 
@@ -61,7 +61,7 @@ DallasTemperature
 El dispositivo realiza una petición **GET** al servidor configurado con el siguiente formato:
 
 ```http
-GET /cava/carga.php/?sn={MAC_ADDRESS}&s1={TEMPERATURA}&s2=0 HTTP/1.1
+GET /wifisensor/carga.php/?sn={MAC_ADDRESS}&s1={TEMPERATURA}&s2=0 HTTP/1.1
 Host: {HOST_CONFIGURADO}
 ```
 
