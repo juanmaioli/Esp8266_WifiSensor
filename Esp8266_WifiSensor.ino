@@ -21,6 +21,7 @@ DallasTemperature sensors1(&oneWire1);
 String serial_number;
 unsigned long last_report_time = 0;
 unsigned long last_sensor_read = 0;
+unsigned long last_success_temp_millis = 0;
 const long sensor_read_interval = 5000; // Leer sensor cada 5s
 float globalTempC = DEVICE_DISCONNECTED_C;
 
@@ -62,6 +63,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                 <div style="text-align:center; margin-top: 20px;">
                     <span style="font-size: 4em; font-weight: bold; color: #4CAF50;">%TEMP1% ºC</span>
                     <p>Sensor Interior</p>
+                    <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 10px;">Actualizado hace %TEMP_TIME%</p>
                 </div>
             </div>
             <!-- Slide 2: Estado del Dispositivo -->
@@ -205,10 +207,12 @@ void handleRoot() {
     html.replace("%MAC%", WiFi.macAddress());
     html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
     html.replace("%UPTIME%", getUptime());
-    html.replace("%TEMP1%", (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1));
-
-    // Configuración
-    html.replace("%CONF_HOST%", String(settings.host));
+        html.replace("%TEMP1%", (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1));
+        
+        unsigned long diff = (last_success_temp_millis > 0) ? (millis() - last_success_temp_millis) / 1000 : 0;
+        html.replace("%TEMP_TIME%", String(diff) + "s");
+    
+        // Configuración    html.replace("%CONF_HOST%", String(settings.host));
     html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
     html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
     html.replace("%CONF_INTERVAL%", String(settings.interval_minutes));
@@ -300,6 +304,7 @@ void loop() {
     float t = sensors1.getTempCByIndex(0);
     if (t != DEVICE_DISCONNECTED_C) {
       globalTempC = t;
+      last_success_temp_millis = millis();
     } else {
        Serial.println("⚠️ Advertencia: Lectura de sensor fallida (Web)");
     }
