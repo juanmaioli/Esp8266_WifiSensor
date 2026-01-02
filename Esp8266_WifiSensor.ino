@@ -126,9 +126,9 @@ const char STYLE_CSS[] PROGMEM = R"rawliteral(
 :root { --bg-color: #f0f2f5; --container-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #4b4f56; --dot-color: #bbb; --dot-active-color: #717171; }
 @media (prefers-color-scheme: dark) { :root { --bg-color: #121212; --container-bg: #1e1e1e; --text-primary: #e0e0e0; --text-secondary: #b0b3b8; --dot-color: #555; --dot-active-color: #ccc; } }
 body { background-color: var(--bg-color); color: var(--text-secondary); font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-.container { background-color: var(--container-bg); padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; height: 450px; position: relative; display: flex; flex-direction: column; }
+.container { background-color: var(--container-bg); padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; height: 500px; position: relative; display: flex; flex-direction: column; }
 .carousel-container { position: relative; flex-grow: 1; overflow: hidden; }
-.carousel-slide { display: none; height: 100%; text-align: left; }
+.carousel-slide { display: none; height: 100%; text-align: left; overflow-y: auto; }
 .fade { animation: fade 0.5s; }
 @keyframes fade { from {opacity: .4} to {opacity: 1} }
 .prev, .next { cursor: pointer; position: absolute; top: 50%; width: auto; padding: 10px; color: var(--text-primary); font-weight: bold; font-size: 20px; z-index: 10; text-decoration: none; }
