@@ -61,7 +61,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                 <h2>Temperatura Actual</h2>
                 <div class="emoji-container"><span class="emoji">🌡️</span></div>
                 <div style="text-align:center; margin-top: 20px;">
-                    <span style="font-size: 4em; font-weight: bold; color: #4CAF50;">%TEMP1% ºC</span>
+                    <span style="font-size: 4em; font-weight: bold; color: %TEMP_COLOR%;">%TEMP1% ºC</span>
                     <p>Sensor Interior</p>
                     <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 10px;">Actualizado hace %TEMP_TIME%</p>
                 </div>
@@ -213,11 +213,21 @@ void handleRoot() {
     html.replace("%MAC%", WiFi.macAddress());
     html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
     html.replace("%UPTIME%", getUptime());
-        html.replace("%TEMP1%", (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1));
+            html.replace("%TEMP1%", (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1));
+            
+            // Color Dinámico de Temperatura
+            String tempColor = "#343A40"; // Default Dark
+            if (globalTempC != DEVICE_DISCONNECTED_C) {
+                if (globalTempC >= 30) tempColor = "#DC3545";      // Rojo
+                else if (globalTempC >= 25) tempColor = "#FFC107"; // Amarillo
+                else if (globalTempC > 10) tempColor = "#28A745";  // Verde
+                else if (globalTempC > 0) tempColor = "#007BFF";   // Azul
+                else tempColor = "#343A40";                        // Oscuro (<= 0)
+            }
+            html.replace("%TEMP_COLOR%", tempColor);
         
-        unsigned long diff = (last_success_temp_millis > 0) ? (millis() - last_success_temp_millis) / 1000 : 0;
-        html.replace("%TEMP_TIME%", String(diff) + "s");
-    
+            unsigned long diff = (last_success_temp_millis > 0) ? (millis() - last_success_temp_millis) / 1000 : 0;
+            html.replace("%TEMP_TIME%", String(diff) + "s");    
         // Configuración    html.replace("%CONF_HOST%", String(settings.host));
     html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
     html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
