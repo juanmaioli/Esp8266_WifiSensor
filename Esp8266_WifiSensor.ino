@@ -147,7 +147,13 @@ label { font-weight: bold; font-size: 0.9em; }
 
 const char SCRIPT_JS[] PROGMEM = R"rawliteral(
 let slideIndex = 1;
-document.addEventListener("DOMContentLoaded", () => showSlide(slideIndex));
+document.addEventListener("DOMContentLoaded", () => {
+    showSlide(slideIndex);
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft") changeSlide(-1);
+        if (e.key === "ArrowRight") changeSlide(1);
+    });
+});
 function changeSlide(n) { showSlide(slideIndex += n); }
 function currentSlide(n) { showSlide(slideIndex = n); }
 function showSlide(n) {
