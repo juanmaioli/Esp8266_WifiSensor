@@ -55,7 +55,16 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <a class="prev" onclick="changeSlide(-1)">&#10094;</a>
         <a class="next" onclick="changeSlide(1)">&#10095;</a>
         <div class="carousel-container">
-            <!-- Slide 1: Estado del Dispositivo -->
+             <!-- Slide 1: Temperatura -->
+            <div class="carousel-slide fade">
+                <h2>Temperatura Actual</h2>
+                <div class="emoji-container"><span class="emoji">🌡️</span></div>
+                <div style="text-align:center; margin-top: 20px;">
+                    <span style="font-size: 4em; font-weight: bold; color: #4CAF50;">%TEMP1% ºC</span>
+                    <p>Sensor Interior</p>
+                </div>
+            </div>
+            <!-- Slide 2: Estado del Dispositivo -->
             <div class="carousel-slide fade">
                 <h2>Estado del Dispositivo</h2>
                 <div class="emoji-container"><span class="emoji">📟</span></div>
@@ -66,15 +75,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                     <strong>🆔 MAC:</strong> %MAC%<br>
                     <strong>🧠 Heap Libre:</strong> %FREE_HEAP% KB<br>
                     <strong>⚡ Activo:</strong> %UPTIME%</h3>
-            </div>
-            <!-- Slide 2: Temperatura -->
-            <div class="carousel-slide fade">
-                <h2>Temperatura Actual</h2>
-                <div class="emoji-container"><span class="emoji">🌡️</span></div>
-                <div style="text-align:center; margin-top: 20px;">
-                    <span style="font-size: 4em; font-weight: bold; color: #4CAF50;">%TEMP1% ºC</span>
-                    <p>Sensor Interior</p>
-                </div>
             </div>
             <!-- Slide 3: Configuración -->
             <div class="carousel-slide fade">
@@ -145,7 +145,6 @@ function showSlide(n) {
     slides[slideIndex - 1].style.display = 'block';
     dots[slideIndex - 1].className += ' active';
 }
-setInterval(() => changeSlide(1), 10000);
 )rawliteral";
 
 void loadConfig() {
