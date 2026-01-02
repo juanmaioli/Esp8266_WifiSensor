@@ -27,7 +27,7 @@ struct Config {
   char host[64];
   bool use_https;
   int interval_minutes;
-  char magic[4]; // Para verificar si la EEPROM está inicializada
+  char magic[5]; // Reservar espacio para terminador nulo
 } settings;
 
 void configModeCallback (WiFiManager *myWiFiManager) {
@@ -173,9 +173,10 @@ function toggleManual() {
 void loadConfig() {
   EEPROM.begin(512);
   EEPROM.get(0, settings);
-  if (strcmp(settings.magic, "CFG1") != 0) {
+  if (String(settings.magic) != "CFG1") {
     // Valores por defecto
     Serial.println("EEPROM vacía, cargando defaults");
+    memset(settings.host, 0, sizeof(settings.host));
     strcpy(settings.host, "pikapp.com.ar");
     settings.use_https = false;
     settings.interval_minutes = 1;
