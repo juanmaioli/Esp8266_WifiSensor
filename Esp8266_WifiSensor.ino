@@ -229,7 +229,8 @@ void handleRoot() {
         
             unsigned long diff = (last_success_temp_millis > 0) ? (millis() - last_success_temp_millis) / 1000 : 0;
             html.replace("%TEMP_TIME%", String(diff) + "s");    
-        // Configuración    html.replace("%CONF_HOST%", String(settings.host));
+    // Configuración
+    html.replace("%CONF_HOST%", String(settings.host));
     html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
     html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
     html.replace("%CONF_INTERVAL%", String(settings.interval_minutes));
