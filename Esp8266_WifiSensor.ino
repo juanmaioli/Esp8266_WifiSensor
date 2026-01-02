@@ -22,6 +22,9 @@ const char* host = "pikapp.com.ar";
 String serial_number;
 unsigned long last_report_time = 0;
 const long report_interval = 60000; // 60 segundos
+unsigned long last_sensor_read = 0;
+const long sensor_read_interval = 5000; // Leer sensor cada 5s
+float globalTempC = DEVICE_DISCONNECTED_C;
 
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
@@ -127,7 +130,6 @@ String getUptime() {
 
 void handleRoot() {
     String html = INDEX_HTML;
-    float currentTemp = sensors1.getTempCByIndex(0);
     
     html.replace("%HOSTNAME%", WiFi.hostname());
     html.replace("%IP%", WiFi.localIP().toString());
@@ -135,7 +137,7 @@ void handleRoot() {
     html.replace("%MAC%", WiFi.macAddress());
     html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
     html.replace("%UPTIME%", getUptime());
-    html.replace("%TEMP1%", (currentTemp == DEVICE_DISCONNECTED_C) ? "--" : String(currentTemp, 1));
+    html.replace("%TEMP1%", (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1));
     
     server.send(200, "text/html", html);
 }
@@ -180,27 +182,37 @@ void setup() {
  
 void loop() {
   server.handleClient();
+
+  // --- 1. Lectura Frecuente del Sensor (Cada 5s) ---
+  if (millis() - last_sensor_read > sensor_read_interval || last_sensor_read == 0) {
+    last_sensor_read = millis();
+    sensors1.requestTemperatures();
+    float t = sensors1.getTempCByIndex(0);
+    if (t != DEVICE_DISCONNECTED_C) {
+      globalTempC = t;
+    } else {
+       Serial.println("⚠️ Advertencia: Lectura de sensor fallida (Web)");
+    }
+  }
   
+  // --- 2. Reporte al Servidor (Cada 60s) ---
   if (millis() - last_report_time < report_interval && last_report_time != 0) {
     return;
   }
   last_report_time = millis();
 
-  sensors1.requestTemperatures(); // Inicia Medicion Temp Freezer 
-  //sensors2.requestTemperatures(); // Inicia Medicion Temp Ambiental 
+  // Usamos el valor global actualizado
+  float celsius1 = globalTempC; 
   
-  float celsius1 = sensors1.getTempCByIndex(0); 
-  
-  // Validar lectura del sensor
+  // Validar si tenemos una temperatura válida para reportar
   if (celsius1 == DEVICE_DISCONNECTED_C) {
-    Serial.println("❌ Error: No se pudo leer la temperatura.");
+    Serial.println("❌ Error: No se pudo leer la temperatura para el reporte.");
     Serial.println("⏳ Reintentando en 30 segundos...");
-    // Ajustar tiempo para que el próximo intento sea en 30s (60s - 30s)
     last_report_time = millis() - 30000; 
     return;
   }
 
-  float celsius2 = 0; //sensors2.getTempCByIndex(0); 
+  float celsius2 = 0; //sensors2.getTempCByIndex(0);
  
   String tempSerial;
   tempSerial=  String(celsius1)+ " ºC Int";
