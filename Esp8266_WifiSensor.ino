@@ -71,6 +71,16 @@ void loop() {
   //sensors2.requestTemperatures(); // Inicia Medicion Temp Ambiental 
   
   float celsius1 = sensors1.getTempCByIndex(0); 
+  
+  // Validar lectura del sensor
+  if (celsius1 == DEVICE_DISCONNECTED_C) {
+    Serial.println("❌ Error: No se pudo leer la temperatura.");
+    Serial.println("⏳ Reintentando en 30 segundos...");
+    // Ajustar tiempo para que el próximo intento sea en 30s (60s - 30s)
+    last_report_time = millis() - 30000; 
+    return;
+  }
+
   float celsius2 = 0; //sensors2.getTempCByIndex(0); 
  
   String tempSerial;
