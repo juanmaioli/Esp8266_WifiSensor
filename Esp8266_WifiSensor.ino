@@ -1,11 +1,13 @@
 
 //CavaWiFi Version 0.9
 //Author Juan Maioli
+#include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#include <OneWire.h> 
 #include <WiFiClientSecure.h>
+#include <WiFiManager.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include <EEPROM.h>
-#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 
 #define ONE_WIRE_BUS1 (D4) // Inicia Medicion Temp Ambiental 
 //#define ONE_WIRE_BUS2 (D5) // Inicia Medicion Temp Ambiental 
