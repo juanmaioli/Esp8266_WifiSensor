@@ -20,6 +20,8 @@ DallasTemperature sensors1(&oneWire1);
 
 const char* host = "pikapp.com.ar"; 
 String serial_number;
+unsigned long last_report_time = 0;
+const long report_interval = 60000; // 60 segundos
 
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
@@ -60,6 +62,11 @@ void setup() {
 }
  
 void loop() {
+  if (millis() - last_report_time < report_interval && last_report_time != 0) {
+    return;
+  }
+  last_report_time = millis();
+
   sensors1.requestTemperatures(); // Inicia Medicion Temp Freezer 
   //sensors2.requestTemperatures(); // Inicia Medicion Temp Ambiental 
   
@@ -105,5 +112,4 @@ WiFiClient client;
   Serial.print("reply was:");
   Serial.println(line);
   Serial.println("closing connection");
-  delay(59000);
  }
