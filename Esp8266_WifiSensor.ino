@@ -257,53 +257,96 @@ String getUptime() {
 }
 
 void handleRoot() {
-    String html = FPSTR(INDEX_HTML);
-    
-    html.replace("%DESC%", String(settings.description));
-    html.replace("%HOSTNAME%", WiFi.hostname());
-    html.replace("%IP%", WiFi.localIP().toString());
-    html.replace("%RSSI%", String(WiFi.RSSI()));
-    html.replace("%MAC%", WiFi.macAddress());
-    html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
-    html.replace("%UPTIME%", getUptime());
-            html.replace("%TEMP1%", (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1));
-            
-            // Color Dinámico de Temperatura
-            String tempColor = "#343A40"; // Default Dark
-            if (globalTempC != DEVICE_DISCONNECTED_C) {
-                if (globalTempC >= 30) tempColor = "#DC3545";      // Rojo
-                else if (globalTempC >= 25) tempColor = "#FFC107"; // Amarillo
-                else if (globalTempC > 10) tempColor = "#28A745";  // Verde
-                else if (globalTempC > 0) tempColor = "#007BFF";   // Azul
-                else tempColor = "#343A40";                        // Oscuro (<= 0)
-            }
-            html.replace("%TEMP_COLOR%", tempColor);
-        
-            unsigned long diff = (last_success_temp_millis > 0) ? (millis() - last_success_temp_millis) / 1000 : 0;
-            html.replace("%TEMP_TIME%", String(diff) + "s");    
-    // Configuración
-    Serial.print("Reemplazando Host con: "); Serial.println(settings.host);
-    html.replace("%CONF_DESC%", String(settings.description));
-    html.replace("%CONF_HOST%", String(settings.host));
-    html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
-    html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
-    html.replace("%CONF_INTERVAL%", String(settings.interval_minutes));
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.send(200, "text/html", "");
 
-    // Lógica de Intervalo
+    // 1. Cabecera y Estilos
+    String chunk = F("<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'>");
+    chunk += F("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+    chunk += F("<title>Sensor WiFi</title>");
+    chunk += F("<link rel='icon' href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌡️</text></svg>'>");
+    chunk += F("<link rel='stylesheet' href='style.css'></head><body><div class='container'>");
+    chunk += F("<a class='prev' onclick='changeSlide(-1)'>&#10094;</a><a class='next' onclick='changeSlide(1)'>&#10095;</a>");
+    chunk += F("<div class='carousel-container'>");
+    server.sendContent(chunk);
+
+    // 2. Slide 1: Temperatura
+    unsigned long diff = (last_success_temp_millis > 0) ? (millis() - last_success_temp_millis) / 1000 : 0;
+    String tempVal = (globalTempC == DEVICE_DISCONNECTED_C) ? "--" : String(globalTempC, 1);
+    
+    String tempColor = "#343A40"; 
+    if (globalTempC != DEVICE_DISCONNECTED_C) {
+        if (globalTempC >= 30) tempColor = "#DC3545";
+        else if (globalTempC >= 25) tempColor = "#FFC107";
+        else if (globalTempC > 10) tempColor = "#28A745";
+        else if (globalTempC > 0) tempColor = "#007BFF";
+    }
+
+    chunk = F("<div class='carousel-slide fade'><h2>Temperatura Actual En ");
+    chunk += String(settings.description) + F("</h2>");
+    chunk += F("<div class='emoji-container'><span class='emoji'>🌡️</span></div>");
+    chunk += F("<div style='text-align:center; margin-top: 20px;'>");
+    chunk += F("<span style='font-size: 4em; font-weight: bold; color: ") + tempColor + F(";'>") + tempVal + F(" ºC</span>");
+    chunk += F("<p>Sensor Interior</p>");
+    chunk += F("<p style='font-size: 0.8em; color: var(--text-secondary); margin-top: 10px;'>Actualizado hace ") + String(diff) + F("s</p></div></div>");
+    server.sendContent(chunk);
+
+    // 3. Slide 2: Datos del Tiempo
+    chunk = F("<div class='carousel-slide fade'><h2>Datos del Tiempo</h2>");
+    chunk += F("<div class='emoji-container'><span id='weather-main-icon' class='emoji'>☁️</span></div>");
+    chunk += F("<div id='weather-data' style='text-align: center; margin-top: 20px;'><p>Cargando datos...</p></div>");
+    chunk += F("<button onclick='fetchWeather()' class='button' style='margin-top:10px; width:auto; padding: 5px 10px; font-size: 0.8em;'>Actualizar</button></div>");
+    server.sendContent(chunk);
+
+    // 4. Slide 3: Estado del Dispositivo
+    chunk = F("<div class='carousel-slide fade'><h2>Estado del Dispositivo</h2>");
+    chunk += F("<div class='emoji-container'><span class='emoji'>📟</span></div><h3>");
+    chunk += F("<strong>🖥️ Hostname:</strong> ") + WiFi.hostname() + F("<br>");
+    chunk += F("<strong>🏠 IP:</strong> ") + WiFi.localIP().toString() + F("<br>");
+    chunk += F("<strong>📶 Señal:</strong> ") + String(WiFi.RSSI()) + F(" dBm<br>");
+    chunk += F("<strong>🆔 MAC:</strong> ") + WiFi.macAddress() + F("<br>");
+    chunk += F("<strong>🧠 Heap Libre:</strong> ") + String(ESP.getFreeHeap() / 1024) + F(" KB<br>");
+    chunk += F("<strong>⚡ Activo:</strong> ") + getUptime() + F("</h3></div>");
+    server.sendContent(chunk);
+
+    // 5. Slide 4: Configuración
     int iv = settings.interval_minutes;
-    html.replace("%INT_1%", (iv==1)?"selected":"");
-    html.replace("%INT_15%", (iv==15)?"selected":"");
-    html.replace("%INT_30%", (iv==30)?"selected":"");
-    html.replace("%INT_60%", (iv==60)?"selected":"");
-    html.replace("%INT_360%", (iv==360)?"selected":"");
-    html.replace("%INT_720%", (iv==720)?"selected":"");
-    html.replace("%INT_1440%", (iv==1440)?"selected":"");
-    
     bool is_manual = (iv!=1 && iv!=15 && iv!=30 && iv!=60 && iv!=360 && iv!=720 && iv!=1440);
-    html.replace("%INT_MANUAL%", is_manual ? "selected" : "");
-    html.replace("%MAN_DISP%", is_manual ? "block" : "none");
+
+    chunk = F("<div class='carousel-slide fade'><h2>Configuración</h2><div class='emoji-container'><span class='emoji'>⚙️</span></div>");
+    chunk += F("<form action='/save' method='POST' style='padding: 0 10px;'>");
     
-    server.send(200, "text/html", html);
+    // Grupo: Desc y Host en la misma línea
+    chunk += F("<div style='display: flex; gap: 10px;'>");
+    chunk += F("<div style='flex: 1;'><label>Descripción:</label><input type='text' name='desc' value='") + String(settings.description) + F("' maxlength='50' placeholder='Ej: Casa'></div>");
+    chunk += F("<div style='flex: 1;'><label>Servidor (Host):</label><input type='text' name='host' value='") + String(settings.host) + F("'></div>");
+    chunk += F("</div>");
+
+    chunk += F("<label>Protocolo:</label><select name='protocol'>");
+    chunk += F("<option value='0' ") + String(settings.use_https ? "" : "selected") + F(">HTTP</option>");
+    chunk += F("<option value='1' ") + String(settings.use_https ? "selected" : "") + F(">HTTPS</option></select>");
+    
+    chunk += F("<label>Intervalo de Reporte:</label><select name='interval_opt' id='interval_opt' onchange='toggleManual()'>");
+    chunk += String(F("<option value='1' ")) + (iv==1?"selected":"") + F(">1 Minuto</option>");
+    chunk += String(F("<option value='15' ")) + (iv==15?"selected":"") + F(">15 Minutos</option>");
+    chunk += String(F("<option value='30' ")) + (iv==30?"selected":"") + F(">30 Minutos</option>");
+    chunk += String(F("<option value='60' ")) + (iv==60?"selected":"") + F(">1 Hora</option>");
+    chunk += String(F("<option value='360' ")) + (iv==360?"selected":"") + F(">6 Horas</option>");
+    chunk += String(F("<option value='720' ")) + (iv==720?"selected":"") + F(">12 Horas</option>");
+    chunk += String(F("<option value='1440' ")) + (iv==1440?"selected":"") + F(">24 Horas</option>");
+    chunk += String(F("<option value='manual' ")) + (is_manual?"selected":"") + F(">Ingreso Manual</option></select>");
+    
+    chunk += F("<div style='display: flex; gap: 10px; margin-top: 15px; align-items: center;'>");
+    chunk += F("<div id='manual_div' style='display: ") + String(is_manual ? "block" : "none") + F("; flex: 1;'>");
+    chunk += F("<input type='number' name='interval_val' value='") + String(iv) + F("' min='1' max='1440' placeholder='Minutos' style='margin: 0;'></div>");
+    chunk += F("<button type='submit' class='button' style='flex: 1; margin: 0;'>Guardar</button></div></form></div>");
+    server.sendContent(chunk);
+
+    // 6. Cierre y Scripts
+    chunk = F("</div><div class='dots'><span class='dot' onclick='currentSlide(1)'></span><span class='dot' onclick='currentSlide(2)'></span>");
+    chunk += F("<span class='dot' onclick='currentSlide(3)'></span><span class='dot' onclick='currentSlide(4)'></span></div></div>");
+    chunk += F("<script src='script.js'></script></body></html>");
+    server.sendContent(chunk);
 }
 
 void handleSave() {
@@ -367,38 +410,27 @@ void setup() {
   Serial.println("HTTP server started");
 }
  
-void loop() {
-  server.handleClient();
-  
-  unsigned long currentMillis = millis();
+// --- Tareas Modulares ---
 
-  // --- 1. Lectura Constante de Sensores (Cada 10 segundos) ---
-  // Esto mantiene la UI actualizada independientemente del intervalo de reporte
-  if (currentMillis - last_sensor_read >= 10000 || last_sensor_read == 0) {
-    last_sensor_read = currentMillis;
+void updateSensors() {
     sensors1.requestTemperatures();
     float t = sensors1.getTempCByIndex(0);
     
     if (t != DEVICE_DISCONNECTED_C) {
         globalTempC = t;
-        last_success_temp_millis = currentMillis;
+        last_success_temp_millis = millis();
     } else {
          Serial.println("⚠️ Sensor: Lectura fallida (Dispositivo desconectado o error)");
     }
-  }
-  
-  // --- 2. Reporte al Servidor (Según Intervalo Configurado) ---
-  unsigned long interval_ms = (unsigned long)settings.interval_minutes * 60000;
-  
-  if (currentMillis - last_report_time >= interval_ms) {
-    // Solo reportamos si tenemos una lectura válida reciente (ej. de los últimos 2 minutos)
-    // o si globalTempC tiene un valor válido.
+}
+
+void sendReport() {
+    // Solo reportamos si tenemos una lectura válida reciente o valor en memoria
     if (globalTempC == DEVICE_DISCONNECTED_C) {
       Serial.println("❌ Omitiendo reporte: No hay temperatura válida.");
       return;
     }
 
-    last_report_time = currentMillis;
     float celsius1 = globalTempC;
     float celsius2 = 0; 
     
@@ -409,6 +441,8 @@ void loop() {
                     "&s1=" + String(celsius1, 1) + 
                     "&s2=" + String(celsius2, 1);
   
+    Serial.print("Requesting URL: "); Serial.println(txtUrl);
+
     WiFiClient client;
     WiFiClientSecure clientSecure;
     
@@ -416,13 +450,17 @@ void loop() {
         clientSecure.setInsecure();
     }
   
-    Serial.print("Connecting to: "); Serial.println(settings.host);
+    // Serial.print("Connecting to: "); Serial.println(settings.host);
     
     bool connected = false;
+    Stream* stream;
+
     if (settings.use_https) {
         connected = clientSecure.connect(settings.host, 443);
+        stream = &clientSecure;
     } else {
         connected = client.connect(settings.host, 80);
+        stream = &client;
     }
   
     if (!connected) {
@@ -430,8 +468,6 @@ void loop() {
       return;
     }
     
-    Stream* stream = settings.use_https ? (Stream*)&clientSecure : (Stream*)&client;
-  
     // Envio de Petición
     stream->print(String("GET ") + txtUrl + " HTTP/1.1\r\n" +
                  "Host: " + settings.host + "\r\n" +
@@ -448,20 +484,34 @@ void loop() {
         break; 
       }
       if (stream->available()) {
-          // Leer headers rápidamente sin acumular String
           String line = stream->readStringUntil('\n');
-          if (line == "\r") {
-              break; // Fin de headers
-          }
+          if (line == "\r") break; // Fin de headers
       }
     }
     
-    // Leer solo la primera línea del cuerpo (respuesta simple)
+    // Leer respuesta (opcional)
     if (stream->available()) {
       String line = stream->readStringUntil('\n');
-      Serial.print("Reply: ");
-      Serial.println(line);
+      Serial.print("Reply: "); Serial.println(line);
     }
-    // La conexión se cierra automáticamente al salir del scope o por el servidor
+}
+ 
+void loop() {
+  server.handleClient();
+  
+  unsigned long currentMillis = millis();
+
+  // Tarea 1: Lectura de Sensores (Cada 10 segundos)
+  if (currentMillis - last_sensor_read >= 10000 || last_sensor_read == 0) {
+    last_sensor_read = currentMillis;
+    updateSensors();
+  }
+  
+  // Tarea 2: Reporte al Servidor (Intervalo Configurable)
+  unsigned long interval_ms = (unsigned long)settings.interval_minutes * 60000;
+  
+  if (currentMillis - last_report_time >= interval_ms) {
+    last_report_time = currentMillis;
+    sendReport();
   }
 }

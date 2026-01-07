@@ -10,6 +10,7 @@ El dispositivo cuenta con una interfaz web moderna y responsiva integrada (aloja
 
 ## 2. Características Principales ✨
 
+*   **Estabilidad y Rendimiento:** Arquitectura modular con manejo de memoria optimizado (Chunked Responses) para evitar reinicios por fragmentación de RAM.
 *   **Conectividad WiFi Inteligente:** Utiliza **WiFiManager** para configurar la red WiFi sin hardcodear credenciales.
 *   **Interfaz Web Integrada:** Dashboard con carrusel de tarjetas para visualizar temperatura, clima externo, estado y configuración.
 *   **Personalización Dinámica:** La interfaz muestra el nombre del lugar configurado (ej. "Temperatura Actual En Cocina") y adapta los iconos del clima según el reporte meteorológico.
