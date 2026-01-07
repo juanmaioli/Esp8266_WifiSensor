@@ -70,7 +70,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             <!-- Slide 2: Datos del Tiempo -->
             <div class="carousel-slide fade">
                 <h2>Datos del Tiempo</h2>
-                <div class="emoji-container"><span class="emoji">☁️</span></div>
+                <div class="emoji-container"><span id="weather-main-icon" class="emoji">☁️</span></div>
                 <div id="weather-data" style="text-align: center; margin-top: 20px;">
                     <p>Cargando datos...</p>
                 </div>
@@ -194,8 +194,15 @@ function fetchWeather() {
             const process = (item) => {
                 if (typeof item === 'object' && item !== null) {
                     if (item.icon && item.etiqueta && item.dato) {
+                        // Detectar el ítem especial de Estado/Icono
+                        if (item.dato === 'Icono') {
+                            const mainIcon = document.getElementById('weather-main-icon');
+                            if (mainIcon) mainIcon.textContent = item.icon;
+                            return ''; // No lo mostramos en la lista
+                        }
+                        
                         // Formato: Icono Etiqueta Dato en una sola línea
-                        return `<div style="padding: 5px 0; font-size: 1.1em; text-align: left;">${item.icon} ${item.etiqueta} ${item.dato}</div>`;
+                        return `<div style="padding: 5px 0; font-size: 0.9em; text-align: left;">${item.icon} ${item.etiqueta} ${item.dato}</div>`;
                     }
                     // Si es un array o un objeto con otros datos, seguimos buscando
                     return Object.values(item).map(val => process(val)).join('');

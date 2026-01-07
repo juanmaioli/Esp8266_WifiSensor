@@ -12,9 +12,9 @@ El dispositivo cuenta con una interfaz web moderna y responsiva integrada (aloja
 
 *   **Conectividad WiFi Inteligente:** Utiliza **WiFiManager** para configurar la red WiFi sin hardcodear credenciales.
 *   **Interfaz Web Integrada:** Dashboard con carrusel de tarjetas para visualizar temperatura, clima externo, estado y configuración.
+*   **Personalización Dinámica:** La interfaz muestra el nombre del lugar configurado (ej. "Temperatura Actual En Cocina") y adapta los iconos del clima según el reporte meteorológico.
 *   **Lectura Desacoplada:** El sensor monitorea la temperatura cada 10 segundos para la UI local, independientemente del intervalo de reporte al servidor.
-*   **Datos Meteorológicos:** Módulo integrado que consulta una API local para mostrar el estado del tiempo.
-*   **Personalización:** Campo "Descripción" configurable (ej. "Cocina", "Oficina") guardado en memoria no volátil.
+*   **Datos Meteorológicos:** Módulo integrado que consulta una API local para mostrar el estado del tiempo con iconos dinámicos.
 *   **Soporte HTTP/HTTPS:** Capacidad de enviar reportes tanto a servidores seguros como estándar.
 *   **Modo Oscuro:** Interfaz web con soporte nativo para temas claros y oscuros.
 
