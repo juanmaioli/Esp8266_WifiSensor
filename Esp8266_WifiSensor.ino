@@ -20,6 +20,7 @@ DallasTemperature sensors1(&oneWire1);
 
 String serial_number;
 unsigned long last_report_time = 0;
+unsigned long last_sensor_read = 0;
 unsigned long last_success_temp_millis = 0;
 float globalTempC = DEVICE_DISCONNECTED_C;
 
@@ -27,6 +28,7 @@ struct Config {
   char host[64];
   bool use_https;
   int interval_minutes;
+  char description[51]; // Nueva variable
   char magic[5]; // Reservar espacio para terminador nulo
 } settings;
 
@@ -65,7 +67,16 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                     <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 10px;">Actualizado hace %TEMP_TIME%</p>
                 </div>
             </div>
-            <!-- Slide 2: Estado del Dispositivo -->
+            <!-- Slide 2: Datos del Tiempo -->
+            <div class="carousel-slide fade">
+                <h2>Datos del Tiempo</h2>
+                <div class="emoji-container"><span class="emoji">☁️</span></div>
+                <div id="weather-data" style="text-align: center; margin-top: 20px;">
+                    <p>Cargando datos...</p>
+                </div>
+                <button onclick="fetchWeather()" class="button" style="margin-top:10px; width:auto; padding: 5px 10px; font-size: 0.8em;">Actualizar</button>
+            </div>
+            <!-- Slide 3: Estado del Dispositivo -->
             <div class="carousel-slide fade">
                 <h2>Estado del Dispositivo</h2>
                 <div class="emoji-container"><span class="emoji">📟</span></div>
@@ -77,11 +88,13 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                     <strong>🧠 Heap Libre:</strong> %FREE_HEAP% KB<br>
                     <strong>⚡ Activo:</strong> %UPTIME%</h3>
             </div>
-            <!-- Slide 3: Configuración -->
+            <!-- Slide 4: Configuración -->
             <div class="carousel-slide fade">
                 <h2>Configuración</h2>
                 <div class="emoji-container"><span class="emoji">⚙️</span></div>
                 <form action="/save" method="POST" style="padding: 0 10px;">
+                    <label>Descripción:</label>
+                    <input type="text" name="desc" value="%CONF_DESC%" maxlength="50" placeholder="Ej: Casa, Oficina">
                     <label>Servidor (Host):</label>
                     <input type="text" name="host" value="%CONF_HOST%">
                     <label>Protocolo:</label>
@@ -113,6 +126,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             <span class="dot" onclick="currentSlide(1)"></span>
             <span class="dot" onclick="currentSlide(2)"></span>
             <span class="dot" onclick="currentSlide(3)"></span>
+            <span class="dot" onclick="currentSlide(4)"></span>
         </div>
     </div>
     <script src="script.js"></script>
@@ -121,8 +135,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 const char STYLE_CSS[] PROGMEM = R"rawliteral(
-:root { --bg-color: #f0f2f5; --container-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #4b4f56; --dot-color: #bbb; --dot-active-color: #717171; }
-@media (prefers-color-scheme: dark) { :root { --bg-color: #121212; --container-bg: #1e1e1e; --text-primary: #e0e0e0; --text-secondary: #b0b3b8; --dot-color: #555; --dot-active-color: #ccc; } }
+:root { --bg-color: #f0f2f5; --container-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #4b4f56; --dot-color: #bbb; --dot-active-color: #717171; --input-bg: #ffffff; --input-border: #ccc; --input-text: #1c1e21; }
+@media (prefers-color-scheme: dark) { :root { --bg-color: #121212; --container-bg: #1e1e1e; --text-primary: #e0e0e0; --text-secondary: #b0b3b8; --dot-color: #555; --dot-active-color: #ccc; --input-bg: #2d2d2d; --input-border: #444; --input-text: #e0e0e0; } }
 body { background-color: var(--bg-color); color: var(--text-secondary); font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
 .container { background-color: var(--container-bg); padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; height: 500px; position: relative; display: flex; flex-direction: column; }
 .carousel-container { position: relative; flex-grow: 1; overflow: hidden; }
@@ -136,9 +150,9 @@ body { background-color: var(--bg-color); color: var(--text-secondary); font-fam
 .active { background-color: var(--dot-active-color); }
 .emoji-container { text-align: center; font-size: 3em; margin: 10px 0; }
 h2 { text-align: center; color: var(--text-primary); }
-h3 { font-size: 0.9em; line-height: 1.6; }
-input, select { width: 100%; padding: 8px; margin: 5px 0 15px; display: inline-block; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-label { font-weight: bold; font-size: 0.9em; }
+h3 { font-size: 0.9em; line-height: 1.6; color: var(--text-primary); }
+input, select { width: 100%; padding: 8px; margin: 5px 0 15px; display: inline-block; border: 1px solid var(--input-border); border-radius: 4px; box-sizing: border-box; background-color: var(--input-bg); color: var(--input-text); }
+label { font-weight: bold; font-size: 0.9em; color: var(--text-primary); }
 .button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
 .button:hover { background-color: #45a049; }
 )rawliteral";
@@ -147,6 +161,7 @@ const char SCRIPT_JS[] PROGMEM = R"rawliteral(
 let slideIndex = 1;
 document.addEventListener("DOMContentLoaded", () => {
     showSlide(slideIndex);
+    fetchWeather();
     document.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft") changeSlide(-1);
         if (e.key === "ArrowRight") changeSlide(1);
@@ -168,23 +183,64 @@ function toggleManual() {
     let opt = document.getElementById('interval_opt').value;
     document.getElementById('manual_div').style.display = (opt === 'manual') ? 'block' : 'none';
 }
+function fetchWeather() {
+    const container = document.getElementById('weather-data');
+    container.innerHTML = '<p>Actualizando...</p>';
+    
+    // Función recursiva para renderizar JSON
+    const renderJSON = (data) => {
+        if (typeof data === 'object' && data !== null) {
+            let html = '<ul style="list-style: none; padding-left: 10px; text-align: left; margin: 0;">';
+            if (Array.isArray(data)) {
+                data.forEach((item, index) => {
+                    html += `<li style="margin-bottom: 5px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">${renderJSON(item)}</li>`;
+                });
+            } else {
+                for (const [key, value] of Object.entries(data)) {
+                    let label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    html += `<li><strong>${label}:</strong> ${renderJSON(value)}</li>`;
+                }
+            }
+            html += '</ul>';
+            return html;
+        }
+        return data; // Valor simple (string, number, boolean)
+    };
+
+    fetch('http://172.21.5.3/ApiWheather/json/')
+        .then(response => {
+            if (!response.ok) throw new Error('Status: ' + response.status);
+            return response.json();
+        })
+        .then(data => {
+            container.innerHTML = renderJSON(data);
+        })
+        .catch(err => {
+            console.error(err);
+            // Mensaje amigable con detalles técnicos ocultos pero accesibles
+            container.innerHTML = `<p style="color: #dc3545;">⚠️ Error de Datos<br><small style="font-size:0.7em">Posible bloqueo CORS o API caída.<br>${err.message}</small></p>`;
+        });
+}
 )rawliteral";
 
 void loadConfig() {
   EEPROM.begin(512);
   EEPROM.get(0, settings);
-  if (String(settings.magic) != "CFG1") {
+  if (String(settings.magic) != "CFG2") {
     // Valores por defecto
-    Serial.println("EEPROM vacía, cargando defaults");
+    Serial.println("EEPROM vacía o versión antigua, cargando defaults");
     memset(settings.host, 0, sizeof(settings.host));
     strcpy(settings.host, "pikapp.com.ar");
     settings.use_https = false;
     settings.interval_minutes = 1;
-    strcpy(settings.magic, "CFG1");
+    memset(settings.description, 0, sizeof(settings.description));
+    strcpy(settings.description, "Casa");
+    strcpy(settings.magic, "CFG2");
     EEPROM.put(0, settings);
     EEPROM.commit();
   }
   Serial.print("Config Host: "); Serial.println(settings.host);
+  Serial.print("Config Desc: "); Serial.println(settings.description);
   Serial.print("Config HTTPS: "); Serial.println(settings.use_https);
 }
 
@@ -229,6 +285,7 @@ void handleRoot() {
             html.replace("%TEMP_TIME%", String(diff) + "s");    
     // Configuración
     Serial.print("Reemplazando Host con: "); Serial.println(settings.host);
+    html.replace("%CONF_DESC%", String(settings.description));
     html.replace("%CONF_HOST%", String(settings.host));
     html.replace("%CONF_HTTP%", settings.use_https ? "" : "selected");
     html.replace("%CONF_HTTPS%", settings.use_https ? "selected" : "");
@@ -252,6 +309,7 @@ void handleRoot() {
 }
 
 void handleSave() {
+  if (server.hasArg("desc")) strncpy(settings.description, server.arg("desc").c_str(), 50);
   if (server.hasArg("host")) strncpy(settings.host, server.arg("host").c_str(), 63);
   if (server.hasArg("protocol")) settings.use_https = (server.arg("protocol").toInt() == 1);
   
@@ -314,51 +372,53 @@ void setup() {
 void loop() {
   server.handleClient();
   
-  // --- Reporte y Lectura (Sincronizados por Intervalo) ---
+  unsigned long currentMillis = millis();
+
+  // --- 1. Lectura Constante de Sensores (Cada 10 segundos) ---
+  // Esto mantiene la UI actualizada independientemente del intervalo de reporte
+  if (currentMillis - last_sensor_read >= 10000 || last_sensor_read == 0) {
+    last_sensor_read = currentMillis;
+    sensors1.requestTemperatures();
+    float t = sensors1.getTempCByIndex(0);
+    
+    if (t != DEVICE_DISCONNECTED_C) {
+        globalTempC = t;
+        last_success_temp_millis = currentMillis;
+    } else {
+         Serial.println("⚠️ Sensor: Lectura fallida (Dispositivo desconectado o error)");
+    }
+  }
+  
+  // --- 2. Reporte al Servidor (Según Intervalo Configurado) ---
   unsigned long interval_ms = (unsigned long)settings.interval_minutes * 60000;
   
-  // Si no es momento de reportar (y ya se reportó al menos una vez), salimos
-  if (millis() - last_report_time < interval_ms && last_report_time != 0) {
-    return;
-  }
-  last_report_time = millis();
-
-  // 1. Leer Sensor
-  sensors1.requestTemperatures();
-  float t = sensors1.getTempCByIndex(0);
-  
-  if (t != DEVICE_DISCONNECTED_C) {
-      globalTempC = t;
-      last_success_temp_millis = millis();
-  } else {
-       Serial.println("⚠️ Advertencia: Lectura de sensor fallida");
-  }
-
-  // Usamos el valor recién leído
-  float celsius1 = globalTempC;    
-    // Validar si tenemos una temperatura válida para reportar
-    if (celsius1 == DEVICE_DISCONNECTED_C) {
-      Serial.println("❌ Error: No se pudo leer la temperatura para el reporte.");
-      Serial.println("⏳ Reintentando en 30 segundos...");
-      last_report_time = millis() - 30000; 
+  if (currentMillis - last_report_time >= interval_ms) {
+    // Solo reportamos si tenemos una lectura válida reciente (ej. de los últimos 2 minutos)
+    // o si globalTempC tiene un valor válido.
+    if (globalTempC == DEVICE_DISCONNECTED_C) {
+      Serial.println("❌ Omitiendo reporte: No hay temperatura válida.");
       return;
     }
-  
+
+    last_report_time = currentMillis;
+    float celsius1 = globalTempC;
     float celsius2 = 0; 
-    String tempSerial = String(celsius1)+ " ºC Int";
-    Serial.println(tempSerial);
+    
+    Serial.print("🌡️ Reportando Temp: "); Serial.println(celsius1);
    
-    String txtUrl = "/wifisensor/carga.php/?sn=" + String(serial_number) + "&s1=" + String(celsius1)+ "&s2=" + String(celsius2);
+    // Construcción eficiente de URL
+    String txtUrl = "/wifisensor/carga.php/?sn=" + String(serial_number) + 
+                    "&s1=" + String(celsius1, 1) + 
+                    "&s2=" + String(celsius2, 1);
   
     WiFiClient client;
     WiFiClientSecure clientSecure;
     
     if (settings.use_https) {
-        clientSecure.setInsecure(); // No validamos certificado para simplicidad
+        clientSecure.setInsecure();
     }
   
-    Serial.print("connecting to ");
-    Serial.println(settings.host);
+    Serial.print("Connecting to: "); Serial.println(settings.host);
     
     bool connected = false;
     if (settings.use_https) {
@@ -368,36 +428,42 @@ void loop() {
     }
   
     if (!connected) {
-      Serial.println("Conexion Fallida");
+      Serial.println("❌ Conexión Fallida");
       return;
     }
     
-    // Referencia genérica al stream conectado para enviar datos
     Stream* stream = settings.use_https ? (Stream*)&clientSecure : (Stream*)&client;
   
-    Serial.print("requesting URL: ");
+    // Envio de Petición
     stream->print(String("GET ") + txtUrl + " HTTP/1.1\r\n" +
                  "Host: " + settings.host + "\r\n" +
-                 "User-Agent: ESP8266WifiSensor\r\n" +
+                 "User-Agent: ESP8266WifiSensor/1.0\r\n" +
                  "Connection: close\r\n\r\n");
   
-    Serial.println("request sent");
+    Serial.println("✅ Request sent");
+    
+    // Timeout para respuesta
     unsigned long timeout = millis();
     while (settings.use_https ? clientSecure.connected() : client.connected()) {
-      if (millis() - timeout > 5000) break; // Timeout simple
+      if (millis() - timeout > 5000) {
+        Serial.println("⚠️ Timeout esperando respuesta");
+        break; 
+      }
       if (stream->available()) {
+          // Leer headers rápidamente sin acumular String
           String line = stream->readStringUntil('\n');
           if (line == "\r") {
-              Serial.println("headers received");
-              break;
+              break; // Fin de headers
           }
       }
     }
     
+    // Leer solo la primera línea del cuerpo (respuesta simple)
     if (stream->available()) {
       String line = stream->readStringUntil('\n');
-      Serial.print("reply was:");
+      Serial.print("Reply: ");
       Serial.println(line);
     }
-    Serial.println("closing connection");
-   }
+    // La conexión se cierra automáticamente al salir del scope o por el servidor
+  }
+}
