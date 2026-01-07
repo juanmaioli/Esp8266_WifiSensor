@@ -59,7 +59,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <div class="carousel-container">
              <!-- Slide 1: Temperatura -->
             <div class="carousel-slide fade">
-                <h2>Temperatura Actual</h2>
+                <h2>Temperatura Actual En %DESC%</h2>
                 <div class="emoji-container"><span class="emoji">🌡️</span></div>
                 <div style="text-align:center; margin-top: 20px;">
                     <span style="font-size: 4em; font-weight: bold; color: %TEMP_COLOR%;">%TEMP1% ºC</span>
@@ -187,38 +187,28 @@ function fetchWeather() {
     const container = document.getElementById('weather-data');
     container.innerHTML = '<p>Actualizando...</p>';
     
-    // Función recursiva para renderizar JSON
-    const renderJSON = (data) => {
-        if (typeof data === 'object' && data !== null) {
-            let html = '<ul style="list-style: none; padding-left: 10px; text-align: left; margin: 0;">';
-            if (Array.isArray(data)) {
-                data.forEach((item, index) => {
-                    html += `<li style="margin-bottom: 5px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">${renderJSON(item)}</li>`;
-                });
-            } else {
-                for (const [key, value] of Object.entries(data)) {
-                    let label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    html += `<li><strong>${label}:</strong> ${renderJSON(value)}</li>`;
-                }
-            }
-            html += '</ul>';
-            return html;
-        }
-        return data; // Valor simple (string, number, boolean)
-    };
-
     fetch('http://172.21.5.3/ApiWheather/json/')
-        .then(response => {
-            if (!response.ok) throw new Error('Status: ' + response.status);
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            container.innerHTML = renderJSON(data);
+            // Función para procesar y encontrar objetos con la estructura deseada
+            const process = (item) => {
+                if (typeof item === 'object' && item !== null) {
+                    if (item.icon && item.etiqueta && item.dato) {
+                        // Formato: Icono Etiqueta Dato en una sola línea
+                        return `<div style="padding: 5px 0; font-size: 1.1em; text-align: left;">${item.icon} ${item.etiqueta} ${item.dato}</div>`;
+                    }
+                    // Si es un array o un objeto con otros datos, seguimos buscando
+                    return Object.values(item).map(val => process(val)).join('');
+                }
+                return '';
+            };
+            
+            const html = process(data);
+            container.innerHTML = html || '<p>No hay datos disponibles</p>';
         })
         .catch(err => {
             console.error(err);
-            // Mensaje amigable con detalles técnicos ocultos pero accesibles
-            container.innerHTML = `<p style="color: #dc3545;">⚠️ Error de Datos<br><small style="font-size:0.7em">Posible bloqueo CORS o API caída.<br>${err.message}</small></p>`;
+            container.innerHTML = '<p style="color: #dc3545;">⚠️ Error al obtener datos</p>';
         });
 }
 )rawliteral";
@@ -262,6 +252,7 @@ String getUptime() {
 void handleRoot() {
     String html = FPSTR(INDEX_HTML);
     
+    html.replace("%DESC%", String(settings.description));
     html.replace("%HOSTNAME%", WiFi.hostname());
     html.replace("%IP%", WiFi.localIP().toString());
     html.replace("%RSSI%", String(WiFi.RSSI()));
