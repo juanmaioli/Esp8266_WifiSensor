@@ -1,7 +1,7 @@
 
-//WifiSensor Version 1.2.0
+//WifiSensor Version 1.2.1
 //Author Juan Maioli
-#define FIRMWARE_VERSION "1.2.0"
+#define FIRMWARE_VERSION "1.2.1"
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WiFiClientSecure.h>
@@ -148,10 +148,9 @@ body { background-color: var(--bg-color); color: var(--text-secondary); font-fam
 .carousel-slide { display: none; height: 100%; text-align: left; overflow-y: auto; }
 .fade { animation: fade 0.5s; }
 @keyframes fade { from {opacity: .4} to {opacity: 1} }
-.prev, .next { cursor: pointer; position: absolute; top: 50%; width: auto; padding: 10px; color: var(--text-primary); font-weight: bold; font-size: 20px; z-index: 10; text-decoration: none; }
-.prev { left: 10px; } .next { right: 10px; }
-.dots { text-align: center; padding-top: 10px; }
-.dot { cursor: pointer; height: 12px; width: 12px; margin: 0 2px; background-color: var(--dot-color); border-radius: 50%; display: inline-block; }
+.prev, .next { cursor: pointer; padding: 0 15px; color: var(--text-primary); font-weight: bold; font-size: 24px; text-decoration: none; user-select: none; }
+.dots { display: flex; justify-content: center; align-items: center; padding: 10px 0; }
+.dot { cursor: pointer; height: 12px; width: 12px; margin: 0 4px; background-color: var(--dot-color); border-radius: 50%; display: inline-block; }
 .active { background-color: var(--dot-active-color); }
 .emoji-container { text-align: center; font-size: 3em; margin: 10px 0; }
 h2 { text-align: center; color: var(--text-primary); }
@@ -287,7 +286,6 @@ void handleRoot() {
     chunk += F("<title>Sensor WiFi</title>");
     chunk += F("<link rel='icon' href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌡️</text></svg>'>");
     chunk += F("<link rel='stylesheet' href='style.css'></head><body><div class='container'>");
-    chunk += F("<a class='prev' onclick='changeSlide(-1)'>&#10094;</a><a class='next' onclick='changeSlide(1)'>&#10095;</a>");
     chunk += F("<div class='carousel-container'>");
     server.sendContent(chunk);
 
@@ -368,8 +366,11 @@ void handleRoot() {
     server.sendContent(chunk);
 
     // 6. Cierre y Scripts
-    chunk = F("</div><div class='dots'><span class='dot' onclick='currentSlide(1)'></span><span class='dot' onclick='currentSlide(2)'></span>");
-    chunk += F("<span class='dot' onclick='currentSlide(3)'></span><span class='dot' onclick='currentSlide(4)'></span></div></div>");
+    chunk = F("</div><div class='dots'>");
+    chunk += F("<a class='prev' onclick='changeSlide(-1)'>&#10094;</a>");
+    chunk += F("<span class='dot' onclick='currentSlide(1)'></span><span class='dot' onclick='currentSlide(2)'></span>");
+    chunk += F("<span class='dot' onclick='currentSlide(3)'></span><span class='dot' onclick='currentSlide(4)'></span>");
+    chunk += F("<a class='next' onclick='changeSlide(1)'>&#10095;</a></div></div>");
     chunk += F("<script src='script.js'></script></body></html>");
     server.sendContent(chunk);
 }
