@@ -1,6 +1,7 @@
 
 //WifiSensor Version 1.0.0
 //Author Juan Maioli
+#define FIRMWARE_VERSION "1.0.0"
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WiFiClientSecure.h>
@@ -307,6 +308,7 @@ void handleRoot() {
     chunk = F("<div class='carousel-slide fade'><h2>Estado del Dispositivo</h2>");
     chunk += F("<div class='emoji-container'><span class='emoji'>📟</span></div><h3>");
     chunk += F("<strong>🖥️ Hostname:</strong> ") + WiFi.hostname() + F("<br>");
+    chunk += F("<strong>💾 Firmware:</strong> ") + String(FIRMWARE_VERSION) + F("<br>");
     chunk += F("<strong>🏠 IP:</strong> ") + WiFi.localIP().toString() + F("<br>");
     chunk += F("<strong>📶 Señal:</strong> ") + String(WiFi.RSSI()) + F(" dBm<br>");
     chunk += F("<strong>🆔 MAC:</strong> ") + WiFi.macAddress() + F("<br>");
@@ -485,7 +487,7 @@ void sendReport() {
     // Envio de Petición
     stream->print(String("GET ") + txtUrl + " HTTP/1.1\r\n" +
                  "Host: " + settings.host + "\r\n" +
-                 "User-Agent: ESP8266WifiSensor/1.0\r\n" +
+                 "User-Agent: ESP8266WifiSensor/" + String(FIRMWARE_VERSION) + "\r\n" +
                  "Connection: close\r\n\r\n");
   
     Serial.println("✅ Request sent");
