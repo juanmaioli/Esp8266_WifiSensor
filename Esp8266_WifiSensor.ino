@@ -1,5 +1,5 @@
 
-//WifiSensor Version 0.9
+//WifiSensor Version 1.0.0
 //Author Juan Maioli
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -8,6 +8,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <EEPROM.h>
+#include <ArduinoOTA.h>
 
 #define ONE_WIRE_BUS1 (D4) // Inicia Medicion Temp Ambiental 
 //#define ONE_WIRE_BUS2 (D5) // Inicia Medicion Temp Ambiental 
@@ -29,6 +30,7 @@ struct Config {
   bool use_https;
   int interval_minutes;
   char description[51]; // Nueva variable
+  char ota_password[21]; // Password OTA
   char magic[5]; // Reservar espacio para terminador nulo
 } settings;
 
@@ -223,7 +225,7 @@ function fetchWeather() {
 void loadConfig() {
   EEPROM.begin(512);
   EEPROM.get(0, settings);
-  if (String(settings.magic) != "CFG2") {
+  if (String(settings.magic) != "CFG3") {
     // Valores por defecto
     Serial.println("EEPROM vacía o versión antigua, cargando defaults");
     memset(settings.host, 0, sizeof(settings.host));
@@ -232,13 +234,16 @@ void loadConfig() {
     settings.interval_minutes = 1;
     memset(settings.description, 0, sizeof(settings.description));
     strcpy(settings.description, "Casa");
-    strcpy(settings.magic, "CFG2");
+    memset(settings.ota_password, 0, sizeof(settings.ota_password));
+    strcpy(settings.ota_password, "ArduinoOTA");
+    strcpy(settings.magic, "CFG3");
     EEPROM.put(0, settings);
     EEPROM.commit();
   }
   Serial.print("Config Host: "); Serial.println(settings.host);
   Serial.print("Config Desc: "); Serial.println(settings.description);
   Serial.print("Config HTTPS: "); Serial.println(settings.use_https);
+  Serial.print("Config OTA Pass: "); Serial.println(settings.ota_password);
 }
 
 void saveConfig() {
@@ -322,9 +327,12 @@ void handleRoot() {
     chunk += F("<div style='flex: 1;'><label>Servidor (Host):</label><input type='text' name='host' value='") + String(settings.host) + F("'></div>");
     chunk += F("</div>");
 
-    chunk += F("<label>Protocolo:</label><select name='protocol'>");
+    chunk += F("<div style='display: flex; gap: 10px;'>");
+    chunk += F("<div style='flex: 1;'><label>Contrase&ntilde;a OTA:</label><input type='text' name='ota_pass' value='") + String(settings.ota_password) + F("' maxlength='20'></div>");
+    chunk += F("<div style='flex: 1;'><label>Protocolo:</label><select name='protocol'>");
     chunk += F("<option value='0' ") + String(settings.use_https ? "" : "selected") + F(">HTTP</option>");
-    chunk += F("<option value='1' ") + String(settings.use_https ? "selected" : "") + F(">HTTPS</option></select>");
+    chunk += F("<option value='1' ") + String(settings.use_https ? "selected" : "") + F(">HTTPS</option></select></div>");
+    chunk += F("</div>");
     
     chunk += F("<label>Intervalo de Reporte:</label><select name='interval_opt' id='interval_opt' onchange='toggleManual()'>");
     chunk += String(F("<option value='1' ")) + (iv==1?"selected":"") + F(">1 Minuto</option>");
@@ -352,6 +360,7 @@ void handleRoot() {
 void handleSave() {
   if (server.hasArg("desc")) strncpy(settings.description, server.arg("desc").c_str(), 50);
   if (server.hasArg("host")) strncpy(settings.host, server.arg("host").c_str(), 63);
+  if (server.hasArg("ota_pass")) strncpy(settings.ota_password, server.arg("ota_pass").c_str(), 20);
   if (server.hasArg("protocol")) settings.use_https = (server.arg("protocol").toInt() == 1);
   
   if (server.hasArg("interval_opt")) {
@@ -400,6 +409,11 @@ void setup() {
     delay(1000);
   }
   Serial.println("Connected OK");
+
+  // OTA Setup
+  ArduinoOTA.setHostname(hostName.c_str());
+  ArduinoOTA.setPassword(settings.ota_password);
+  ArduinoOTA.begin();
 
   // Configurar Servidor Web
   server.on("/", handleRoot);
@@ -497,6 +511,7 @@ void sendReport() {
 }
  
 void loop() {
+  ArduinoOTA.handle();
   server.handleClient();
   
   unsigned long currentMillis = millis();
