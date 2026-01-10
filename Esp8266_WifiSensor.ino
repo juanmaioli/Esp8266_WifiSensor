@@ -10,6 +10,7 @@
 #include <DallasTemperature.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
+#include <time.h>
 
 #define ONE_WIRE_BUS1 (D4) // Inicia Medicion Temp Ambiental 
 //#define ONE_WIRE_BUS2 (D5) // Inicia Medicion Temp Ambiental 
@@ -24,6 +25,7 @@ String serial_number;
 unsigned long last_report_time = 0;
 unsigned long last_sensor_read = 0;
 unsigned long last_success_temp_millis = 0;
+char last_update_time_str[10] = "--:--"; 
 float globalTempC = DEVICE_DISCONNECTED_C;
 
 struct Config {
@@ -294,7 +296,7 @@ void handleRoot() {
     chunk += F("<div style='text-align:center; margin-top: 20px;'>");
     chunk += F("<span style='font-size: 4em; font-weight: bold; color: ") + tempColor + F(";'>") + tempVal + F(" ºC</span>");
     chunk += F("<p>Sensor Interior</p>");
-    chunk += F("<p style='font-size: 0.8em; color: var(--text-secondary); margin-top: 10px;'>Actualizado hace ") + String(diff) + F("s</p></div></div>");
+    chunk += F("<p style='font-size: 0.8em; color: var(--text-secondary); margin-top: 10px;'>Actualizado a las ") + String(last_update_time_str) + F("</p></div></div>");
     server.sendContent(chunk);
 
     // 3. Slide 2: Datos del Tiempo
@@ -417,6 +419,9 @@ void setup() {
   ArduinoOTA.setPassword(settings.ota_password);
   ArduinoOTA.begin();
 
+  // NTP Setup (UTC-3 for Argentina)
+  configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+
   // Configurar Servidor Web
   server.on("/", handleRoot);
   server.on("/save", HTTP_POST, handleSave);
@@ -435,6 +440,14 @@ void updateSensors() {
     if (t != DEVICE_DISCONNECTED_C) {
         globalTempC = t;
         last_success_temp_millis = millis();
+
+        // Actualizar string de hora
+        time_t now = time(nullptr);
+        struct tm* timeinfo = localtime(&now);
+        // Si el año es > 2020 (considerando epoch 1900), asumimos que NTP sincronizó
+        if (timeinfo->tm_year > 120) { 
+             snprintf(last_update_time_str, sizeof(last_update_time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+        }
     } else {
          Serial.println("⚠️ Sensor: Lectura fallida (Dispositivo desconectado o error)");
     }
