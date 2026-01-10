@@ -1,7 +1,7 @@
 
-//WifiSensor Version 1.1.0
+//WifiSensor Version 1.2.0
 //Author Juan Maioli
-#define FIRMWARE_VERSION "1.1.0"
+#define FIRMWARE_VERSION "1.2.0"
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WiFiClientSecure.h>
@@ -264,6 +264,19 @@ String getUptime() {
     return String(d) + "d " + String(h) + "h " + String(m) + "m " + String(s) + "s";
 }
 
+int getCIDR() {
+  IPAddress mask = WiFi.subnetMask();
+  int count = 0;
+  for (int i = 0; i < 4; i++) {
+    uint8_t n = mask[i];
+    while (n > 0) {
+      count += (n & 1);
+      n >>= 1;
+    }
+  }
+  return count;
+}
+
 void handleRoot() {
     server.setContentLength(CONTENT_LENGTH_UNKNOWN);
     server.send(200, "text/html", "");
@@ -311,7 +324,7 @@ void handleRoot() {
     chunk += F("<div class='emoji-container'><span class='emoji'>📟</span></div><h3>");
     chunk += F("<strong>🖥️ Hostname:</strong> ") + WiFi.hostname() + F("<br>");
     chunk += F("<strong>💾 Firmware:</strong> ") + String(FIRMWARE_VERSION) + F("<br>");
-    chunk += F("<strong>🏠 IP:</strong> ") + WiFi.localIP().toString() + F("<br>");
+    chunk += F("<strong>🏠 IP:</strong> ") + WiFi.localIP().toString() + "/" + String(getCIDR()) + F("<br>");
     chunk += F("<strong>📶 Señal:</strong> ") + String(WiFi.RSSI()) + F(" dBm<br>");
     chunk += F("<strong>🆔 MAC:</strong> ") + WiFi.macAddress() + F("<br>");
     chunk += F("<strong>🧠 Heap Libre:</strong> ") + String(ESP.getFreeHeap() / 1024) + F(" KB<br>");
