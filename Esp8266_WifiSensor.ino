@@ -1,7 +1,7 @@
 
-//WifiSensor Version 1.0.0
+//WifiSensor Version 1.1.0
 //Author Juan Maioli
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.1.0"
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WiFiClientSecure.h>
