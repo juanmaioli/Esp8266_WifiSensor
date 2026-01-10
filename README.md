@@ -6,18 +6,18 @@
 
 **WifiSensor** es un sistema de monitoreo de temperatura basado en el microcontrolador **ESP8266**. Utiliza sensores **DS18B20** para leer la temperatura ambiente y enviarla periódicamente a un servidor remoto.
 
-El dispositivo cuenta con una interfaz web moderna y responsiva integrada (alojada en la memoria flash) que permite visualizar el estado en tiempo real, consultar datos meteorológicos externos y realizar configuraciones sin necesidad de reflashear el código.
+El dispositivo cuenta con una interfaz web moderna y responsiva integrada que permite visualizar el estado en tiempo real, consultar datos meteorológicos externos, actualizar el firmware vía OTA y realizar configuraciones avanzadas.
 
 ## 2. Características Principales ✨
 
 *   **Estabilidad y Rendimiento:** Arquitectura modular con manejo de memoria optimizado (Chunked Responses) para evitar reinicios por fragmentación de RAM.
-*   **Conectividad WiFi Inteligente:** Utiliza **WiFiManager** para configurar la red WiFi sin hardcodear credenciales.
-*   **Interfaz Web Integrada:** Dashboard con carrusel de tarjetas para visualizar temperatura, clima externo, estado y configuración.
-*   **Personalización Dinámica:** La interfaz muestra el nombre del lugar configurado (ej. "Temperatura Actual En Cocina") y adapta los iconos del clima según el reporte meteorológico.
+*   **Actualizaciones OTA:** Soporte nativo para actualizaciones de firmware inalámbricas con protección por contraseña.
+*   **Sincronización NTP:** Visualización de la hora exacta de la última medición (Zona horaria UTC-3).
+*   **Conectividad WiFi Inteligente:** Utiliza **WiFiManager** para configurar la red WiFi sin hardcodear credenciales. Visualización de IP con notación CIDR.
+*   **Interfaz Web Integrada:** Dashboard con carrusel de tarjetas para visualizar temperatura, clima externo, estado detallado y configuración.
+*   **Personalización Dinámica:** La interfaz muestra el nombre del lugar configurado y la versión del firmware instalada.
 *   **Lectura Desacoplada:** El sensor monitorea la temperatura cada 10 segundos para la UI local, independientemente del intervalo de reporte al servidor.
-*   **Datos Meteorológicos:** Módulo integrado que consulta una API local para mostrar el estado del tiempo con iconos dinámicos.
 *   **Soporte HTTP/HTTPS:** Capacidad de enviar reportes tanto a servidores seguros como estándar.
-*   **Modo Oscuro:** Interfaz web con soporte nativo para temas claros y oscuros.
 
 ## 3. Hardware Requerido 🛠️
 
@@ -47,6 +47,8 @@ WiFiManager
 OneWire
 DallasTemperature
 EEPROM
+ArduinoOTA
+time.h (Nativa)
 ```
 
 ## 5. Configuración y Uso ⚙️
@@ -57,6 +59,7 @@ EEPROM
 4.  **Ajustes:** En la pestaña "Configuración":
     *   **Descripción:** Nombre amigable para identificar el sensor (ej: "Sótano").
     *   **Host:** Servidor de destino para los reportes.
+    *   **Contraseña OTA:** Clave para permitir la carga inalámbrica de firmware (Defecto: `ArduinoOTA`).
     *   **Intervalo:** Frecuencia de envío de datos (1 min - 24 hs).
 
 ## 6. API de Reporte 📡
@@ -66,7 +69,8 @@ El dispositivo realiza una petición **GET** al servidor configurado:
 ```http
 GET /wifisensor/carga.php/?sn={MAC_ADDRESS}&s1={TEMPERATURA}&s2=0 HTTP/1.1
 Host: {HOST_CONFIGURADO}
+User-Agent: ESP8266WifiSensor/{FIRMWARE_VERSION}
 ```
 
 ---
-**Nota:** El sistema reintenta la conexión si falla y posee mecanismos de reinicio en caso de pérdida prolongada de conectividad.
+**Versión Actual:** 1.2.1
