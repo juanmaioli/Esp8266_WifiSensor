@@ -194,6 +194,9 @@ function fetchWeather() {
     fetch('http://172.21.5.3/ApiWheather/json/')
         .then(response => response.json())
         .then(data => {
+            let temp = null, st = null, hum = null;
+            let otherHtml = '';
+
             // Función para procesar y encontrar objetos con la estructura deseada
             const process = (item) => {
                 if (typeof item === 'object' && item !== null) {
@@ -202,20 +205,35 @@ function fetchWeather() {
                         if (item.dato === 'Icono') {
                             const mainIcon = document.getElementById('weather-main-icon');
                             if (mainIcon) mainIcon.textContent = item.icon;
-                            return ''; // No lo mostramos en la lista
+                            return; 
                         }
                         
+                        // Agrupar items especificos
+                        if (item.etiqueta.includes('Temperatura')) { temp = item; return; }
+                        if (item.etiqueta.includes('Sensación Térmica')) { st = item; return; }
+                        if (item.etiqueta.includes('Humedad')) { hum = item; return; }
+
                         // Formato: Icono Etiqueta Dato en una sola línea
-                        return `<div style="padding: 5px 0; font-size: 0.9em; text-align: left;">${item.icon} ${item.etiqueta} ${item.dato}</div>`;
+                        otherHtml += `<div style="padding: 5px 0; font-size: 0.9em; text-align: left;">${item.icon} ${item.etiqueta} ${item.dato}</div>`;
+                        return;
                     }
                     // Si es un array o un objeto con otros datos, seguimos buscando
-                    return Object.values(item).map(val => process(val)).join('');
+                    Object.values(item).forEach(val => process(val));
                 }
-                return '';
             };
             
-            const html = process(data);
-            container.innerHTML = html || '<p>No hay datos disponibles</p>';
+            process(data);
+            
+            let specialLine = '';
+            if (temp || st || hum) {
+                let parts = [];
+                if (temp) parts.push(`${temp.icon}  ${temp.dato}`);
+                if (st) parts.push(`${st.icon} ST ${st.dato}`);
+                if (hum) parts.push(`${hum.icon} ${hum.dato}`);
+                specialLine = `<div style="padding: 5px 0; font-size: 0.9em; text-align: center; white-space: nowrap; overflow-x: auto;">${parts.join('-')}</div>`;
+            }
+            
+            container.innerHTML = specialLine + otherHtml || '<p>No hay datos disponibles</p>';
         })
         .catch(err => {
             console.error(err);
