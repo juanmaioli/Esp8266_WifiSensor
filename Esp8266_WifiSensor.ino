@@ -195,6 +195,7 @@ function fetchWeather() {
         .then(response => response.json())
         .then(data => {
             let temp = null, st = null, hum = null;
+            let windDir = null, windSpeed = null;
             let otherHtml = '';
 
             // Función para procesar y encontrar objetos con la estructura deseada
@@ -212,6 +213,10 @@ function fetchWeather() {
                         if (item.etiqueta.includes('Temperatura')) { temp = item; return; }
                         if (item.etiqueta.includes('Sensación Térmica')) { st = item; return; }
                         if (item.etiqueta.includes('Humedad')) { hum = item; return; }
+                        
+                        // Agrupar Viento
+                        if (item.etiqueta.includes('Viento') && !item.etiqueta.includes('Velocidad')) { windDir = item; return; }
+                        if (item.etiqueta.includes('Velocidad del Viento')) { windSpeed = item; return; }
 
                         // Formato: Icono Etiqueta Dato en una sola línea
                         otherHtml += `<div style="padding: 5px 0; font-size: 0.9em; text-align: left;">${item.icon} ${item.etiqueta} ${item.dato}</div>`;
@@ -225,12 +230,22 @@ function fetchWeather() {
             process(data);
             
             let specialLine = '';
+            // Linea 1: Temperatura
             if (temp || st || hum) {
                 let parts = [];
                 if (temp) parts.push(`${temp.icon}  ${temp.dato}`);
                 if (st) parts.push(`${st.icon} ST ${st.dato}`);
                 if (hum) parts.push(`${hum.icon} ${hum.dato}`);
-                specialLine = `<div style="padding: 5px 0; font-size: 0.9em; text-align: center; white-space: nowrap; overflow-x: auto;">${parts.join('-')}</div>`;
+                specialLine += `<div style="padding: 5px 0; font-size: 0.9em; text-align: center; white-space: nowrap; overflow-x: auto;">${parts.join('-')}</div>`;
+            }
+
+            // Linea 2: Viento
+            if (windDir || windSpeed) {
+                let wPart = '';
+                if (windDir) wPart += `${windDir.icon} ${windDir.etiqueta} ${windDir.dato}`; 
+                if (windDir && windSpeed) wPart += ' a ';
+                if (windSpeed) wPart += `${windSpeed.icon} ${windSpeed.dato}`;
+                specialLine += `<div style="padding: 5px 0; font-size: 0.9em; text-align: center; white-space: nowrap; overflow-x: auto;">${wPart}</div>`;
             }
             
             container.innerHTML = specialLine + otherHtml || '<p>No hay datos disponibles</p>';
