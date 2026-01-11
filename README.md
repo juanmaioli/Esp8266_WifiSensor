@@ -14,7 +14,7 @@ El dispositivo cuenta con una interfaz web moderna y responsiva integrada que pe
 *   **Actualizaciones OTA:** Soporte nativo para actualizaciones de firmware inalámbricas con protección por contraseña.
 *   **Sincronización NTP:** Visualización de la hora exacta de la última medición (Zona horaria UTC-3).
 *   **Conectividad WiFi Inteligente:** Utiliza **WiFiManager** para configurar la red WiFi sin hardcodear credenciales. Visualización de IP con notación CIDR.
-*   **Interfaz Web Integrada:** Dashboard con carrusel de tarjetas para visualizar temperatura, clima externo, estado detallado y configuración.
+*   **Interfaz Web Integrada:** Dashboard con carrusel de tarjetas para visualizar temperatura, clima externo, estado detallado y configuración. Los datos meteorológicos están optimizados y agrupados para una lectura rápida y eficiente.
 *   **Personalización Dinámica:** La interfaz muestra el nombre del lugar configurado y la versión del firmware instalada.
 *   **Lectura Desacoplada:** El sensor monitorea la temperatura cada 10 segundos para la UI local, independientemente del intervalo de reporte al servidor.
 *   **Soporte HTTP/HTTPS:** Capacidad de enviar reportes tanto a servidores seguros como estándar.
