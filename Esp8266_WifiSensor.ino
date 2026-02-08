@@ -1,7 +1,7 @@
 
-//WifiSensor Version 1.2.2
+//WifiSensor Version 1.2.3
 //Author Juan Maioli
-#define FIRMWARE_VERSION "1.2.2"
+#define FIRMWARE_VERSION "1.2.3"
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WiFiClientSecure.h>
@@ -32,9 +32,10 @@ struct Config {
   char host[64];
   bool use_https;
   int interval_minutes;
-  char description[51]; // Nueva variable
-  char ota_password[21]; // Password OTA
-  char magic[5]; // Reservar espacio para terminador nulo
+  char description[51]; 
+  char ota_password[21]; 
+  char weather_host[64]; // Nueva variable para la IP/Host del clima
+  char magic[5]; 
 } settings;
 
 void configModeCallback (WiFiManager *myWiFiManager) {
@@ -47,98 +48,6 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 ESP8266WebServer server(80);
 
 // --- Recursos Web ---
-const char INDEX_HTML[] PROGMEM = R"rawliteral(
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sensor WiFi</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌡️</text></svg>">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <a class="prev" onclick="changeSlide(-1)">&#10094;</a>
-        <a class="next" onclick="changeSlide(1)">&#10095;</a>
-        <div class="carousel-container">
-             <!-- Slide 1: Temperatura -->
-            <div class="carousel-slide fade">
-                <h2>Temperatura Actual En %DESC%</h2>
-                <div class="emoji-container"><span class="emoji">🌡️</span></div>
-                <div style="text-align:center; margin-top: 20px;">
-                    <span style="font-size: 4em; font-weight: bold; color: %TEMP_COLOR%;">%TEMP1% ºC</span>
-                    <p>Sensor Interior</p>
-                    <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 10px;">Actualizado hace %TEMP_TIME%</p>
-                </div>
-            </div>
-            <!-- Slide 2: Datos del Tiempo -->
-            <div class="carousel-slide fade">
-                <h2>Datos del Tiempo</h2>
-                <div class="emoji-container"><span id="weather-main-icon" class="emoji">☁️</span></div>
-                <div id="weather-data" style="text-align: center; margin-top: 20px;">
-                    <p>Cargando datos...</p>
-                </div>
-                <button onclick="fetchWeather()" class="button" style="margin-top:10px; width:auto; padding: 5px 10px; font-size: 0.8em;">Actualizar</button>
-            </div>
-            <!-- Slide 3: Estado del Dispositivo -->
-            <div class="carousel-slide fade">
-                <h2>Estado del Dispositivo</h2>
-                <div class="emoji-container"><span class="emoji">📟</span></div>
-                <h3>
-                    <strong>🖥️ Hostname:</strong> %HOSTNAME%<br>
-                    <strong>🏠 IP:</strong> %IP%<br>
-                    <strong>📶 Señal:</strong> %RSSI% dBm<br>
-                    <strong>🆔 MAC:</strong> %MAC%<br>
-                    <strong>🧠 Heap Libre:</strong> %FREE_HEAP% KB<br>
-                    <strong>⚡ Activo:</strong> %UPTIME%</h3>
-            </div>
-            <!-- Slide 4: Configuración -->
-            <div class="carousel-slide fade">
-                <h2>Configuración</h2>
-                <div class="emoji-container"><span class="emoji">⚙️</span></div>
-                <form action="/save" method="POST" style="padding: 0 10px;">
-                    <label>Descripción:</label>
-                    <input type="text" name="desc" value="%CONF_DESC%" maxlength="50" placeholder="Ej: Casa, Oficina">
-                    <label>Servidor (Host):</label>
-                    <input type="text" name="host" value="%CONF_HOST%">
-                    <label>Protocolo:</label>
-                    <select name="protocol">
-                        <option value="0" %CONF_HTTP%>HTTP</option>
-                        <option value="1" %CONF_HTTPS%>HTTPS</option>
-                    </select>
-                    <label>Intervalo de Reporte:</label>
-                    <select name="interval_opt" id="interval_opt" onchange="toggleManual()">
-                        <option value="1" %INT_1%>1 Minuto</option>
-                        <option value="15" %INT_15%>15 Minutos</option>
-                        <option value="30" %INT_30%>30 Minutos</option>
-                        <option value="60" %INT_60%>1 Hora</option>
-                        <option value="360" %INT_360%>6 Horas</option>
-                        <option value="720" %INT_720%>12 Horas</option>
-                        <option value="1440" %INT_1440%>24 Horas</option>
-                        <option value="manual" %INT_MANUAL%>Ingreso Manual</option>
-                    </select>
-                    <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
-                        <div id="manual_div" style="display: %MAN_DISP%; flex: 1;">
-                            <input type="number" name="interval_val" value="%CONF_INTERVAL%" min="1" max="1440" placeholder="Minutos" style="margin: 0;">
-                        </div>
-                        <button type="submit" class="button" style="flex: 1; margin: 0;">Guardar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <div class="dots">
-            <span class="dot" onclick="currentSlide(1)"></span>
-            <span class="dot" onclick="currentSlide(2)"></span>
-            <span class="dot" onclick="currentSlide(3)"></span>
-            <span class="dot" onclick="currentSlide(4)"></span>
-        </div>
-    </div>
-    <script src="script.js"></script>
-</body>
-</html>
-)rawliteral";
-
 const char STYLE_CSS[] PROGMEM = R"rawliteral(
 :root {
   --bg-color: #f0f2f5;
@@ -151,8 +60,6 @@ const char STYLE_CSS[] PROGMEM = R"rawliteral(
   --dot-active-color: #717171;
   --input-bg: #fff;
   --input-border: #ccc;
-  --console-bg: #1e1e1e;
-  --console-text: #00ff00;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -367,36 +274,6 @@ input[type=password] {
   color: var(--text-primary);
 }
 
-#console-output {
-  width: 90%;
-  height: 237px;
-  background-color: #333;
-  color: #eee;
-  font-family: monospace;
-  border: 1px solid #444;
-  border-radius: 4px;
-  padding: 10px;
-  resize: none;
-  overflow-y: scroll;
-  font-size: 1.1em;
-  font-weight: bold;
-  margin: 0 auto 10px auto;
-  display: block;
-}
-
-#console-input {
-  width: calc(90% - 80px);
-  display: inline-block;
-  margin-left: 5%;
-}
-
-#console-send {
-  width: 70px;
-  display: inline-block;
-  padding: 12px 0;
-  margin-left: 5px;
-}
-
 @media (max-width: 768px) {
   .container {
     width: 95%;
@@ -483,7 +360,7 @@ function fetchWeather() {
     const container = document.getElementById('weather-data');
     container.innerHTML = '<p>Actualizando...</p>';
     
-    fetch('http://172.21.5.3/ApiWheather/json/')
+    fetch('http://' + WEATHER_HOST + '/ApiWheather/json/')
         .then(response => response.json())
         .then(data => {
             let temp = null, st = null, hum = null;
@@ -552,7 +429,7 @@ function fetchWeather() {
 void loadConfig() {
   EEPROM.begin(512);
   EEPROM.get(0, settings);
-  if (String(settings.magic) != "CFG3") {
+  if (String(settings.magic) != "CFG4") {
     // Valores por defecto
     Serial.println("EEPROM vacía o versión antigua, cargando defaults");
     memset(settings.host, 0, sizeof(settings.host));
@@ -563,14 +440,14 @@ void loadConfig() {
     strcpy(settings.description, "Casa");
     memset(settings.ota_password, 0, sizeof(settings.ota_password));
     strcpy(settings.ota_password, "ArduinoOTA");
-    strcpy(settings.magic, "CFG3");
+    memset(settings.weather_host, 0, sizeof(settings.weather_host));
+    strcpy(settings.weather_host, "172.21.5.3");
+    strcpy(settings.magic, "CFG4");
     EEPROM.put(0, settings);
     EEPROM.commit();
   }
   Serial.print("Config Host: "); Serial.println(settings.host);
-  Serial.print("Config Desc: "); Serial.println(settings.description);
-  Serial.print("Config HTTPS: "); Serial.println(settings.use_https);
-  Serial.print("Config OTA Pass: "); Serial.println(settings.ota_password);
+  Serial.print("Config Weather Host: "); Serial.println(settings.weather_host);
 }
 
 void saveConfig() {
@@ -669,10 +546,12 @@ void handleRoot() {
 
     chunk += F("<div style='display: flex; gap: 10px;'>");
     chunk += F("<div style='flex: 1;'><label>Contrase&ntilde;a OTA:</label><input type='text' name='ota_pass' value='") + String(settings.ota_password) + F("' maxlength='20'></div>");
-    chunk += F("<div style='flex: 1;'><label>Protocolo:</label><select name='protocol'>");
-    chunk += F("<option value='0' ") + String(settings.use_https ? "" : "selected") + F(">HTTP</option>");
-    chunk += F("<option value='1' ") + String(settings.use_https ? "selected" : "") + F(">HTTPS</option></select></div>");
+    chunk += F("<div style='flex: 1;'><label>IP Clima:</label><input type='text' name='w_host' value='") + String(settings.weather_host) + F("' placeholder='Ej: 192.168.1.10'></div>");
     chunk += F("</div>");
+
+    chunk += F("<label>Protocolo:</label><select name='protocol'>");
+    chunk += F("<option value='0' ") + String(settings.use_https ? "" : "selected") + F(">HTTP</option>");
+    chunk += F("<option value='1' ") + String(settings.use_https ? "selected" : "") + F(">HTTPS</option></select>");
     
     chunk += F("<label>Intervalo de Reporte:</label><select name='interval_opt' id='interval_opt' onchange='toggleManual()'>");
     chunk += String(F("<option value='1' ")) + (iv==1?"selected":"") + F(">1 Minuto</option>");
@@ -696,6 +575,7 @@ void handleRoot() {
     chunk += F("<span class='dot' onclick='currentSlide(1)'></span><span class='dot' onclick='currentSlide(2)'></span>");
     chunk += F("<span class='dot' onclick='currentSlide(3)'></span><span class='dot' onclick='currentSlide(4)'></span>");
     chunk += F("<a class='next' onclick='changeSlide(1)'>&#10095;</a></div></div>");
+    chunk += F("<script>const WEATHER_HOST = '") + String(settings.weather_host) + F("';</script>");
     chunk += F("<script src='script.js'></script></body></html>");
     server.sendContent(chunk);
 }
@@ -704,6 +584,7 @@ void handleSave() {
   if (server.hasArg("desc")) strncpy(settings.description, server.arg("desc").c_str(), 50);
   if (server.hasArg("host")) strncpy(settings.host, server.arg("host").c_str(), 63);
   if (server.hasArg("ota_pass")) strncpy(settings.ota_password, server.arg("ota_pass").c_str(), 20);
+  if (server.hasArg("w_host")) strncpy(settings.weather_host, server.arg("w_host").c_str(), 63);
   if (server.hasArg("protocol")) settings.use_https = (server.arg("protocol").toInt() == 1);
   
   if (server.hasArg("interval_opt")) {
