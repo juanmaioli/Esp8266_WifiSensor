@@ -1,7 +1,7 @@
 
-//WifiSensor Version 1.2.1
+//WifiSensor Version 1.2.2
 //Author Juan Maioli
-#define FIRMWARE_VERSION "1.2.1"
+#define FIRMWARE_VERSION "1.2.2"
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WiFiClientSecure.h>
@@ -140,25 +140,317 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 const char STYLE_CSS[] PROGMEM = R"rawliteral(
-:root { --bg-color: #f0f2f5; --container-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #4b4f56; --dot-color: #bbb; --dot-active-color: #717171; --input-bg: #ffffff; --input-border: #ccc; --input-text: #1c1e21; }
-@media (prefers-color-scheme: dark) { :root { --bg-color: #121212; --container-bg: #1e1e1e; --text-primary: #e0e0e0; --text-secondary: #b0b3b8; --dot-color: #555; --dot-active-color: #ccc; --input-bg: #2d2d2d; --input-border: #444; --input-text: #e0e0e0; } }
-body { background-color: var(--bg-color); color: var(--text-secondary); font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-.container { background-color: var(--container-bg); padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; height: 500px; position: relative; display: flex; flex-direction: column; }
-.carousel-container { position: relative; flex-grow: 1; overflow: hidden; }
-.carousel-slide { display: none; height: 100%; text-align: left; overflow-y: auto; }
-.fade { animation: fade 0.5s; }
-@keyframes fade { from {opacity: .4} to {opacity: 1} }
-.prev, .next { cursor: pointer; padding: 0 15px; color: var(--text-primary); font-weight: bold; font-size: 24px; text-decoration: none; user-select: none; }
-.dots { display: flex; justify-content: center; align-items: center; padding: 10px 0; }
-.dot { cursor: pointer; height: 12px; width: 12px; margin: 0 4px; background-color: var(--dot-color); border-radius: 50%; display: inline-block; }
-.active { background-color: var(--dot-active-color); }
-.emoji-container { text-align: center; font-size: 3em; margin: 10px 0; }
-h2 { text-align: center; color: var(--text-primary); }
-h3 { font-size: 0.9em; line-height: 1.6; color: var(--text-primary); }
-input, select { width: 100%; padding: 8px; margin: 5px 0 15px; display: inline-block; border: 1px solid var(--input-border); border-radius: 4px; box-sizing: border-box; background-color: var(--input-bg); color: var(--input-text); }
-label { font-weight: bold; font-size: 0.9em; color: var(--text-primary); }
-.button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-.button:hover { background-color: #45a049; }
+:root {
+  --bg-color: #f0f2f5;
+  --container-bg: #ffffff;
+  --text-primary: #1c1e21;
+  --text-secondary: #4b4f56;
+  --pre-bg: #f5f5f5;
+  --hr-color: #e0e0e0;
+  --dot-color: #bbb;
+  --dot-active-color: #717171;
+  --input-bg: #fff;
+  --input-border: #ccc;
+  --console-bg: #1e1e1e;
+  --console-text: #00ff00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #121212;
+    --container-bg: #1e1e1e;
+    --text-primary: #e0e0e0;
+    --text-secondary: #b0b3b8;
+    --pre-bg: #2a2a2a;
+    --hr-color: #3e4042;
+    --dot-color: #555;
+    --dot-active-color: #ccc;
+    --input-bg: #333;
+    --input-border: #555;
+  }
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 1rem 0;
+}
+
+.container {
+  background-color: var(--container-bg);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: left;
+  width: 400px;
+  height: 80vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+p {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin: 0.5rem 0;
+}
+
+strong {
+  color: var(--text-primary);
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background-color: var(--hr-color);
+  margin: 1.5rem 0;
+}
+
+.carousel-container {
+  position: relative;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.carousel-slide {
+  display: none;
+  height: 100%;
+  width: 100%;
+  flex-basis: 100%;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding-right: 15px;
+  box-sizing: border-box;
+  word-wrap: break-word;
+}
+
+.fade {
+  animation-name: fade;
+  animation-duration: 0.5s;
+}
+
+@keyframes fade {
+  from {
+    opacity: .4
+  }
+
+  to {
+    opacity: 1
+  }
+}
+
+.prev,
+.next {
+  cursor: pointer;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  padding: 16px;
+  color: var(--text-primary);
+  font-weight: bold;
+  font-size: 24px;
+  transition: 0.3s;
+  user-select: none;
+  z-index: 10;
+}
+
+.prev {
+  left: -50px;
+}
+
+.next {
+  right: -50px;
+}
+
+.prev:hover,
+.next:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+}
+
+.dots {
+  text-align: center;
+  padding-top: 20px;
+}
+
+.dot {
+  cursor: pointer;
+  height: 15px;
+  width: 15px;
+  margin: 0 2px;
+  background-color: var(--dot-color);
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.3s ease;
+}
+
+.active,
+.dot:hover {
+  background-color: var(--dot-active-color);
+}
+
+.emoji-container {
+  text-align: center;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.emoji {
+  font-size: 4em;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 10px 0;
+  cursor: pointer;
+  border-radius: 5px;
+  border: none;
+}
+
+.button:hover {
+  background-color: #45a049;
+}
+
+.button[disabled] {
+  background-color: #555;
+  color: #eee;
+  border: 1px solid #eeeeee;
+  cursor: not-allowed;
+}
+
+.center-button {
+  text-align: center;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.form-group {
+  flex: 1;
+}
+
+input,
+input[type=text],
+input[type=password] {
+  width: 100%;
+  padding: 12px 20px;
+  margin: 8px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+}
+
+#console-output {
+  width: 90%;
+  height: 237px;
+  background-color: #333;
+  color: #eee;
+  font-family: monospace;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 10px;
+  resize: none;
+  overflow-y: scroll;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin: 0 auto 10px auto;
+  display: block;
+}
+
+#console-input {
+  width: calc(90% - 80px);
+  display: inline-block;
+  margin-left: 5%;
+}
+
+#console-send {
+  width: 70px;
+  display: inline-block;
+  padding: 12px 0;
+  margin-left: 5px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    height: 80vh;
+    padding: 1rem;
+  }
+
+  .prev,
+  .next {
+    top: auto;
+    bottom: 5px;
+    transform: translateY(0);
+  }
+
+  .prev {
+    left: 10px;
+  }
+
+  .next {
+    right: 10px;
+  }
+}
+
+select {
+  width: 100%;
+  padding: 8px;
+  margin: 5px 0 15px;
+  display: inline-block;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  box-sizing: border-box;
+  background-color: var(--input-bg);
+  color: var(--input-text);
+}
+
+label {
+  font-weight: bold;
+  font-size: 0.9em;
+  color: var(--text-primary);
+}
+
+.button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.button:hover {
+  background-color: #45a049;
+}
 )rawliteral";
 
 const char SCRIPT_JS[] PROGMEM = R"rawliteral(

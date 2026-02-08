@@ -73,4 +73,4 @@ User-Agent: ESP8266WifiSensor/{FIRMWARE_VERSION}
 ```
 
 ---
-**Versión Actual:** 1.2.1
+**Versión Actual:** 1.2.2
